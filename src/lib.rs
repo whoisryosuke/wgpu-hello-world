@@ -9,6 +9,8 @@ use winit::{
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+use wgpu::include_wgsl;
+
 struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -16,6 +18,7 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     clear_color: wgpu::Color,
+    render_pipeline: wgpu::RenderPipeline,
 }
 
 impl State {
@@ -66,6 +69,69 @@ impl State {
         };
         surface.configure(&device, &config);
 
+        // Load shader from disk
+        let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
+
+        // Create the render pipeline
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[],
+                push_constant_ranges: &[],
+            });
+
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            // Set the entry point of the shader (@vertex or @fragment in our `.wgsl` file)
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                // Specify the vertex buffers passed vertex shader
+                // Empty for now
+                buffers: &[],
+            },
+            // The fragment shader is optional, so we wrap it in a `Some`
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent::REPLACE,
+                        alpha: wgpu::BlendComponent::REPLACE,
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            // Rendering options for the shaders (tris vs quads, back-culling of meshes, etc)
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                // or Features::POLYGON_MODE_POINT
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            // Define a depth stencil buffer to measure distance in shaders
+            depth_stencil: None,
+            // Render sampling
+            multisample: wgpu::MultisampleState {
+                // How many samples pipeline uses (e.g Cycles in Render)
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            // If the pipeline will be used with a multiview render pass, this
+            // indicates how many array layers the attachments will have.
+            multiview: None,
+        });
+
         let clear_color = wgpu::Color::BLACK;
 
         Self {
@@ -75,6 +141,7 @@ impl State {
             config,
             clear_color,
             size,
+            render_pipeline,
         }
     }
 
@@ -120,19 +187,35 @@ impl State {
             });
 
         {
-            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        // Clear color
-                        load: wgpu::LoadOp::Clear(self.clear_color),
+                        // Set the clear color during redraw
+                        // This is basically a background color applied if an object isn't taking up space
+                        // This sets it a color that changes based on mouse move
+                        // load: wgpu::LoadOp::Clear(self.clear_color),
+
+                        // A standard clear color
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
                         store: true,
                     },
                 })],
                 depth_stencil_attachment: None,
             });
+
+            // Setup our render pipeline with our config earlier in `new()`
+            render_pass.set_pipeline(&self.render_pipeline);
+            // Draw in pipeline!
+            // In this case we define 3 vertices (enough for a triangle) and a single instance.
+            render_pass.draw(0..3, 0..1);
         }
 
         self.queue.submit(iter::once(encoder.finish()));
@@ -185,7 +268,8 @@ pub async fn run() {
                 window_id,
             } if window_id == window.id() => {
                 if !state.input(event) {
-                    // UPDATED!
+                    // Handle window events (like resizing, or key inputs)
+                    // This is stuff from `winit` -- see their docs for more info
                     match event {
                         WindowEvent::CloseRequested
                         | WindowEvent::KeyboardInput {
