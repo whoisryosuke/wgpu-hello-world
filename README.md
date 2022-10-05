@@ -6,5 +6,5 @@ Repo for exploring wgpu for Rust. Based on [wgpu examples](https://github.com/gf
 
 1. Clone this repo:
 2. Run the project:
-   a. For web using `trunk serve`
-   b. For desktop using `cargo run`
+   - For web using `trunk serve`
+   - For desktop using `cargo run`
