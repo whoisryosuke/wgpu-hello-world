@@ -8,8 +8,81 @@ use winit::{
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-
 use wgpu::include_wgsl;
+use wgpu::util::DeviceExt;
+
+// Create a struct to contain our vertex data
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+    position: [f32; 3],
+    color: [f32; 3],
+}
+
+impl Vertex {
+    // Part of shorthand code
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+
+    // This method handles measuring the vertex data for memory purposes
+    // This is common for vertex buffers (or "VBOs") to have a "stride"
+    // Since data is sent to shaders as a single block - we need to know how to break it up
+    // e.g. 2D Vector has X and Y values, that'd be "flattened" into a single array `[x1,y1,x2,y2, ..etc]`
+    // so we let pipeline know each set is every other value -- but using memory size as the basis
+    // (integer = 2 blocks of memory * 2 integers = 4 blocks)
+    // @see: https://www.khronos.org/opengl/wiki/Vertex_Specification#Vertex_Buffer_Object
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            // Verbose version
+            // array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            // step_mode: wgpu::VertexStepMode::Vertex,
+            // attributes: &[
+            //     wgpu::VertexAttribute {
+            //         offset: 0,
+            //         shader_location: 0,
+            //         format: wgpu::VertexFormat::Float32x3,
+            //     },
+            //     wgpu::VertexAttribute {
+            //         offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+            //         shader_location: 1,
+            //         format: wgpu::VertexFormat::Float32x3,
+            //     },
+            // ],
+
+            // Shorthand version
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
+
+// The vertices we'll load into our buffer
+// These are vertices for a pentagon, but normally we'd parse a 3D file (e.g. `.obj`) into this format
+const VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [-0.0868241, 0.49240386, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // A
+    Vertex {
+        position: [-0.49513406, 0.06958647, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // B
+    Vertex {
+        position: [-0.21918549, -0.44939706, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // C
+    Vertex {
+        position: [0.35966998, -0.3473291, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // D
+    Vertex {
+        position: [0.44147372, 0.2347359, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // E
+];
+
+const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, /* padding */ 0];
 
 struct State {
     surface: wgpu::Surface,
@@ -19,6 +92,9 @@ struct State {
     size: winit::dpi::PhysicalSize<u32>,
     clear_color: wgpu::Color,
     render_pipeline: wgpu::RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    num_indices: u32,
 }
 
 impl State {
@@ -89,7 +165,7 @@ impl State {
                 entry_point: "vs_main",
                 // Specify the vertex buffers passed vertex shader
                 // Empty for now
-                buffers: &[],
+                buffers: &[Vertex::desc()],
             },
             // The fragment shader is optional, so we wrap it in a `Some`
             fragment: Some(wgpu::FragmentState {
@@ -134,6 +210,21 @@ impl State {
             multiview: None,
         });
 
+        // Initialize the vertex buffer
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        // Initialize the buffer for the indices
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(INDICES),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+        let num_indices = INDICES.len() as u32;
+
+        // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
 
         Self {
@@ -144,6 +235,9 @@ impl State {
             clear_color,
             size,
             render_pipeline,
+            vertex_buffer,
+            index_buffer,
+            num_indices,
         }
     }
 
@@ -217,7 +311,10 @@ impl State {
             render_pass.set_pipeline(&self.render_pipeline);
             // Draw in pipeline!
             // In this case we define 3 vertices (enough for a triangle) and a single instance.
-            render_pass.draw(0..3, 0..1);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            // We use  "draw_indexed" instead of "draw" here to use the index buffer we created
+            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         }
 
         self.queue.submit(iter::once(encoder.finish()));

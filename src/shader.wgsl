@@ -1,27 +1,32 @@
 // Vertex shader
 
-// Define the vertex output
-// This gets sent to the fragment shader as a parameter (see `in` below)
+// This is the input from the vertex buffer we created
+// We get the properties from our Vertex struct here
+// Note the index on location -- this relates to the properties placement in the buffer stride
+// e.g. 0 = 1st "set" of data, 1 = 2nd "set"
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(1) color: vec3<f32>,
+};
+
+// The output we send to our fragment shader
 struct VertexOutput {
+    // This property is "builtin" (aka used to render our vertex shader)
     @builtin(position) clip_position: vec4<f32>,
-    // We create a new 2D vector to send position coordinates to fragment shader
-    @location(0) position: vec2<f32>,
+    // These are "custom" properties we can create to pass down
+    // In this case, we pass the color down
+    @location(0) color: vec3<f32>,
 };
 
 @vertex
 fn vs_main(
-    @builtin(vertex_index) in_vertex_index: u32,
+    model: VertexInput,
 ) -> VertexOutput {
-    // Position vertices in a triangle shape
-    // This is calculated using the index of the vertex (0-2) and a math equation
+    // We define the output we want to send over to frag shader
     var out: VertexOutput;
-    let x = f32(1 - i32(in_vertex_index)) * 0.5;
-    let y = f32(i32(in_vertex_index & 1u) * 2 - 1) * 0.5;
-
-    // We pass the position we created to the vertex output `struct`
-    // These get passed to fragment shader and also used by renderer (like position)
-    out.position = vec2<f32>(x, y);
-    out.clip_position = vec4<f32>(x, y, 0.0, 1.0);
+    out.color = model.color;
+    // We set the "position" by using the `clip_position` property
+    out.clip_position = vec4<f32>(model.position, 1.0);
     return out;
 }
 
@@ -29,6 +34,6 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // We use the position coordinates from vertex shader above as colors
-    return vec4<f32>(in.position, 0.5, 1.0);
+    // We grab the color passed down from the vertex shader
+    return vec4<f32>(in.color, 1.0);
 }
