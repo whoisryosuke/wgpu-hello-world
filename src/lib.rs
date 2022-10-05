@@ -83,9 +83,9 @@ impl State {
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
-            // Set the entry point of the shader (@vertex or @fragment in our `.wgsl` file)
             vertex: wgpu::VertexState {
                 module: &shader,
+                // Set the entry point (the function name below @vertex in our `.wgsl` file)
                 entry_point: "vs_main",
                 // Specify the vertex buffers passed vertex shader
                 // Empty for now
@@ -94,9 +94,11 @@ impl State {
             // The fragment shader is optional, so we wrap it in a `Some`
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
+                // Set the entry point (the function name below @fragment in our `.wgsl` file)
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
+                    // Set any blending modes for the shader
                     blend: Some(wgpu::BlendState {
                         color: wgpu::BlendComponent::REPLACE,
                         alpha: wgpu::BlendComponent::REPLACE,
