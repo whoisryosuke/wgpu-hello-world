@@ -6,7 +6,7 @@
 // e.g. 0 = 1st "set" of data, 1 = 2nd "set"
 struct VertexInput {
     @location(0) position: vec3<f32>,
-    @location(1) color: vec3<f32>,
+    @location(1) tex_coords: vec2<f32>,
 };
 
 // The output we send to our fragment shader
@@ -15,7 +15,7 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     // These are "custom" properties we can create to pass down
     // In this case, we pass the color down
-    @location(0) color: vec3<f32>,
+    @location(0) tex_coords: vec2<f32>,
 };
 
 @vertex
@@ -24,7 +24,7 @@ fn vs_main(
 ) -> VertexOutput {
     // We define the output we want to send over to frag shader
     var out: VertexOutput;
-    out.color = model.color;
+    out.tex_coords = model.tex_coords;
     // We set the "position" by using the `clip_position` property
     out.clip_position = vec4<f32>(model.position, 1.0);
     return out;
@@ -32,8 +32,14 @@ fn vs_main(
 
 // Fragment shader
 
+// We create variables for the bind groups 
+@group(0) @binding(0)
+var t_diffuse: texture_2d<f32>;
+@group(0)@binding(1)
+var s_diffuse: sampler;
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // We grab the color passed down from the vertex shader
-    return vec4<f32>(in.color, 1.0);
+    // We use the special function `textureSample` to combine the texture data with coords
+    return textureSample(t_diffuse, s_diffuse, in.tex_coords);
 }
