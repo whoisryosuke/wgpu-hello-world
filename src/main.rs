@@ -1,35 +1,35 @@
-/// This example shows how to describe the adapter in use.
-async fn run() {
-    #[cfg_attr(target_arch = "wasm32", allow(unused_variables))]
-    let adapter = {
-        let instance = wgpu::Instance::new(wgpu::Backends::all());
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            println!("Available adapters:");
-            for a in instance.enumerate_adapters(wgpu::Backends::all()) {
-                println!("    {:?}", a.get_info())
-            }
-        }
-        instance
-            .request_adapter(&wgpu::RequestAdapterOptions::default())
-            .await
-            .unwrap()
-    };
+use winit::{
+    event::*,
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
+};
 
-    #[cfg(not(target_arch = "wasm32"))]
-    println!("Selected adapter: {:?}", adapter.get_info())
+pub fn run() {
+    env_logger::init();
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new().build(&event_loop).unwrap();
+
+    event_loop.run(move |event, _, control_flow| match event {
+        Event::WindowEvent {
+            ref event,
+            window_id,
+        } if window_id == window.id() => match event {
+            WindowEvent::CloseRequested
+            | WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Escape),
+                        ..
+                    },
+                ..
+            } => *control_flow = ControlFlow::Exit,
+            _ => {}
+        },
+        _ => {}
+    });
 }
 
 fn main() {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        env_logger::init();
-        pollster::block_on(run());
-    }
-    #[cfg(target_arch = "wasm32")]
-    {
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        console_log::init().expect("could not initialize logger");
-        wasm_bindgen_futures::spawn_local(run());
-    }
+    run();
 }
