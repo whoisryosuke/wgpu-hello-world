@@ -17,6 +17,13 @@ struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) tex_coords: vec2<f32>,
 };
+// The instance buffer
+struct InstanceInput {
+    @location(5) model_matrix_0: vec4<f32>,
+    @location(6) model_matrix_1: vec4<f32>,
+    @location(7) model_matrix_2: vec4<f32>,
+    @location(8) model_matrix_3: vec4<f32>,
+}
 
 // The output we send to our fragment shader
 struct VertexOutput {
@@ -30,12 +37,22 @@ struct VertexOutput {
 @vertex
 fn vs_main(
     model: VertexInput,
+    instance: InstanceInput,
 ) -> VertexOutput {
+    // Reconstruct the matrix from the flattened/raw data
+    let model_matrix = mat4x4<f32>(
+        instance.model_matrix_0,
+        instance.model_matrix_1,
+        instance.model_matrix_2,
+        instance.model_matrix_3,
+    );
+
     // We define the output we want to send over to frag shader
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
     // We set the "position" by using the `clip_position` property
-    out.clip_position = camera.view_proj * vec4<f32>(model.position, 1.0);
+    // We multiply it by the camera position matrix and the instance position matrix
+    out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
     return out;
 }
 
