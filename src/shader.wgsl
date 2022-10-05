@@ -1,5 +1,14 @@
 // Vertex shader
 
+// Define any uniforms we expect from app
+struct CameraUniform {
+    view_proj: mat4x4<f32>,
+};
+// We create variables for the bind groups
+// This is the "second" group we bound, so we access via `@group(1)`
+@group(1) @binding(0)
+var<uniform> camera: CameraUniform;
+
 // This is the input from the vertex buffer we created
 // We get the properties from our Vertex struct here
 // Note the index on location -- this relates to the properties placement in the buffer stride
@@ -26,7 +35,7 @@ fn vs_main(
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
     // We set the "position" by using the `clip_position` property
-    out.clip_position = vec4<f32>(model.position, 1.0);
+    out.clip_position = camera.view_proj * vec4<f32>(model.position, 1.0);
     return out;
 }
 
