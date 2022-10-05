@@ -15,9 +15,11 @@ struct State {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
+    clear_color: wgpu::Color,
 }
 
 impl State {
+    // Initialize the state
     async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
@@ -34,6 +36,7 @@ impl State {
             .await
             .unwrap();
 
+        // Select a device to use
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -53,6 +56,7 @@ impl State {
             .await
             .unwrap();
 
+        // Config for surface
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface.get_supported_formats(&adapter)[0],
@@ -62,15 +66,19 @@ impl State {
         };
         surface.configure(&device, &config);
 
+        let clear_color = wgpu::Color::BLACK;
+
         Self {
             surface,
             device,
             queue,
             config,
+            clear_color,
             size,
         }
     }
 
+    // Keeps state in sync with window size when changed
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
@@ -80,13 +88,25 @@ impl State {
         }
     }
 
-    #[allow(unused_variables)]
+    // Handle input using WindowEvent
     fn input(&mut self, event: &WindowEvent) -> bool {
-        false
+        match event {
+            WindowEvent::CursorMoved { position, .. } => {
+                self.clear_color = wgpu::Color {
+                    r: 0.0,
+                    g: position.y as f64 / self.size.height as f64,
+                    b: position.x as f64 / self.size.width as f64,
+                    a: 1.0,
+                };
+                true
+            }
+            _ => false,
+        }
     }
 
     fn update(&mut self) {}
 
+    // Primary render flow
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
@@ -106,12 +126,8 @@ impl State {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
+                        // Clear color
+                        load: wgpu::LoadOp::Clear(self.clear_color),
                         store: true,
                     },
                 })],
