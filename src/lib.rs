@@ -409,10 +409,10 @@ impl State {
             label: Some("camera_bind_group"),
         });
 
-        // Load model from disk as a HTTP request (for web support)
+        // Load model from disk or as a HTTP request (for web support)
         log::warn!("Load model");
         let obj_model =
-            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
+            resources::load_model("banana.obj", &device, &queue, &texture_bind_group_layout)
                 .await
                 .expect("Couldn't load model. Maybe path is wrong?");
 
