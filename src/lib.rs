@@ -324,6 +324,7 @@ struct State {
     // Textures
     diffuse_texture: texture::Texture,
     diffuse_bind_group: wgpu::BindGroup,
+    depth_texture: texture::Texture,
     // Camera
     camera: Camera,
     camera_controller: CameraController,
@@ -520,6 +521,10 @@ impl State {
         // Load shader from disk
         let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
+        // Create depth texture
+        let depth_texture =
+            texture::Texture::create_depth_texture(&device, &config, "depth_texture");
+
         // Create the render pipeline
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -571,7 +576,13 @@ impl State {
                 conservative: false,
             },
             // Define a depth stencil buffer to measure distance in shaders
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: texture::Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             // Render sampling
             multisample: wgpu::MultisampleState {
                 // How many samples pipeline uses (e.g Cycles in Render)
@@ -614,6 +625,7 @@ impl State {
             num_indices,
             diffuse_texture,
             diffuse_bind_group,
+            depth_texture,
             camera,
             camera_controller,
             camera_buffer,
@@ -631,6 +643,9 @@ impl State {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+            // Make sure to current window size to depth texture - required for calc
+            self.depth_texture =
+                texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
         }
     }
 
@@ -686,6 +701,7 @@ impl State {
                     ops: wgpu::Operations {
                         // Set the clear color during redraw
                         // This is basically a background color applied if an object isn't taking up space
+
                         // This sets it a color that changes based on mouse move
                         // load: wgpu::LoadOp::Clear(self.clear_color),
 
@@ -699,7 +715,15 @@ impl State {
                         store: true,
                     },
                 })],
-                depth_stencil_attachment: None,
+                // Create a depth stencil buffer using the depth texture
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
             // Setup our render pipeline with our config earlier in `new()`
