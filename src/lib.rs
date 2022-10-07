@@ -12,90 +12,13 @@ use winit::{
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+mod model;
+mod resources;
 mod texture;
+use model::{DrawModel, Vertex};
 
 // Constants for instances
 const NUM_INSTANCES_PER_ROW: u32 = 10;
-const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-    0.0,
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-);
-
-// Create a struct to contain our vertex data
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    // color: [f32; 3],
-    tex_coords: [f32; 2],
-}
-
-impl Vertex {
-    // Part of shorthand code
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
-
-    // This method handles measuring the vertex data for memory purposes
-    // This is common for vertex buffers (or "VBOs") to have a "stride"
-    // Since data is sent to shaders as a single block - we need to know how to break it up
-    // e.g. 2D Vector has X and Y values, that'd be "flattened" into a single array `[x1,y1,x2,y2, ..etc]`
-    // so we let pipeline know each set is every other value -- but using memory size as the basis
-    // (integer = 2 blocks of memory * 2 integers = 4 blocks)
-    // @see: https://www.khronos.org/opengl/wiki/Vertex_Specification#Vertex_Buffer_Object
-    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        wgpu::VertexBufferLayout {
-            // Verbose version
-            // array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            // step_mode: wgpu::VertexStepMode::Vertex,
-            // attributes: &[
-            //     wgpu::VertexAttribute {
-            //         offset: 0,
-            //         shader_location: 0,
-            //         format: wgpu::VertexFormat::Float32x3,
-            //     },
-            //     wgpu::VertexAttribute {
-            //         offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-            //         shader_location: 1,
-            //         format: wgpu::VertexFormat::Float32x3,
-            //     },
-            // ],
-
-            // Shorthand version
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBS,
-        }
-    }
-}
-
-// The vertices we'll load into our buffer
-// These are vertices for a pentagon, but normally we'd parse a 3D file (e.g. `.obj`) into this format
-const VERTICES: &[Vertex] = &[
-    // Changed
-    Vertex {
-        position: [-0.0868241, 0.49240386, 0.0],
-        tex_coords: [0.4131759, 0.00759614],
-    }, // A
-    Vertex {
-        position: [-0.49513406, 0.06958647, 0.0],
-        tex_coords: [0.0048659444, 0.43041354],
-    }, // B
-    Vertex {
-        position: [-0.21918549, -0.44939706, 0.0],
-        tex_coords: [0.28081453, 0.949397],
-    }, // C
-    Vertex {
-        position: [0.35966998, -0.3473291, 0.0],
-        tex_coords: [0.85967, 0.84732914],
-    }, // D
-    Vertex {
-        position: [0.44147372, 0.2347359, 0.0],
-        tex_coords: [0.9414737, 0.2652641],
-    }, // E
-];
-
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, /* padding */ 0];
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
@@ -131,7 +54,6 @@ struct CameraUniform {
 
 impl CameraUniform {
     fn new() -> Self {
-        use cgmath::SquareMatrix;
         Self {
             view_proj: cgmath::Matrix4::identity().into(),
         }
@@ -210,7 +132,6 @@ impl CameraController {
     }
 
     fn update_camera(&self, camera: &mut Camera) {
-        use cgmath::InnerSpace;
         let forward = camera.target - camera.eye;
         let forward_norm = forward.normalize();
         let forward_mag = forward.magnitude();
@@ -317,13 +238,7 @@ struct State {
     clear_color: wgpu::Color,
     // Render pipeline
     render_pipeline: wgpu::RenderPipeline,
-    // Buffers
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    num_indices: u32,
     // Textures
-    diffuse_texture: texture::Texture,
-    diffuse_bind_group: wgpu::BindGroup,
     depth_texture: texture::Texture,
     // Camera
     camera: Camera,
@@ -334,6 +249,8 @@ struct State {
     // Instances
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
+    // 3D Model
+    obj_model: model::Model,
 }
 
 impl State {
@@ -384,11 +301,6 @@ impl State {
         };
         surface.configure(&device, &config);
 
-        // Load textures from disk
-        let diffuse_bytes = include_bytes!("avatar.jpg");
-        let diffuse_texture =
-            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "avatar.jpg").unwrap();
-
         // Bind the texture to the renderer
         // This creates a general texture bind group
         let texture_bind_group_layout =
@@ -414,28 +326,10 @@ impl State {
                 label: Some("texture_bind_group_layout"),
             });
 
-        // This creates a texture-specific bind group
-        // If you wanted to add another texture to same mesh, you'd add another diffuse bind group
-        // And swap between the two during the draw/render method
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
-
         // Bind the camera to the shaders
 
         let camera = Camera {
-            eye: (0.0, 1.0, 2.0).into(),
+            eye: (0.0, 5.0, -10.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: cgmath::Vector3::unit_y(),
             aspect: config.width as f32 / config.height as f32,
@@ -457,18 +351,16 @@ impl State {
         // Create instance buffer
         // We create a 2x2 grid of objects by doing 1 nested loop here
         // And use the "displacement" matrix above to offset objects with a gap
+        const SPACE_BETWEEN: f32 = 3.0;
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let position = cgmath::Vector3 {
-                        x: x as f32,
-                        y: 0.0,
-                        z: z as f32,
-                    } - INSTANCE_DISPLACEMENT;
+                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+
+                    let position = cgmath::Vector3 { x, y: 0.0, z };
 
                     let rotation = if position.is_zero() {
-                        // this is needed so an object at (0, 0, 0) won't get scaled to zero
-                        // as Quaternions can effect scale if they're not created correctly
                         cgmath::Quaternion::from_axis_angle(
                             cgmath::Vector3::unit_z(),
                             cgmath::Deg(0.0),
@@ -477,7 +369,6 @@ impl State {
                         cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
                     };
 
-                    // Return an instance struct with our generated properties
                     Instance { position, rotation }
                 })
             })
@@ -518,6 +409,13 @@ impl State {
             label: Some("camera_bind_group"),
         });
 
+        // Load model from disk as a HTTP request (for web support)
+        log::warn!("Load model");
+        let obj_model =
+            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
+                .await
+                .expect("Couldn't load model. Maybe path is wrong?");
+
         // Load shader from disk
         let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
@@ -544,7 +442,7 @@ impl State {
                 entry_point: "vs_main",
                 // Specify the vertex buffers passed vertex shader
                 // Empty for now
-                buffers: &[Vertex::desc(), InstanceRaw::desc()],
+                buffers: &[model::ModelVertex::desc(), InstanceRaw::desc()],
             },
             // The fragment shader is optional, so we wrap it in a `Some`
             fragment: Some(wgpu::FragmentState {
@@ -595,20 +493,6 @@ impl State {
             multiview: None,
         });
 
-        // Initialize the vertex buffer
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-        // Initialize the buffer for the indices
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-        let num_indices = INDICES.len() as u32;
-
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
 
@@ -620,11 +504,6 @@ impl State {
             clear_color,
             size,
             render_pipeline,
-            vertex_buffer,
-            index_buffer,
-            num_indices,
-            diffuse_texture,
-            diffuse_bind_group,
             depth_texture,
             camera,
             camera_controller,
@@ -633,6 +512,7 @@ impl State {
             camera_uniform,
             instances,
             instance_buffer,
+            obj_model,
         }
     }
 
@@ -727,20 +607,14 @@ impl State {
             });
 
             // Setup our render pipeline with our config earlier in `new()`
-            render_pass.set_pipeline(&self.render_pipeline);
-            // Add our bind groups to render pipeline
-            // Textures
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            // Camera
-            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-            // Draw in pipeline!
-            // In this case we define 3 vertices (enough for a triangle) and a single instance.
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            // Set the instance buffer to our vertex shader
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            // We use  f"draw_indexed" instead of "draw" here to use the index buffer we created
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instances.len() as _);
+            render_pass.set_pipeline(&self.render_pipeline);
+
+            render_pass.draw_model_instanced(
+                &self.obj_model,
+                0..self.instances.len() as u32,
+                &self.camera_bind_group,
+            );
         }
 
         self.queue.submit(iter::once(encoder.finish()));
