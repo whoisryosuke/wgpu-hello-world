@@ -17,6 +17,12 @@ struct Light {
 @group(2) @binding(0)
 var<uniform> light: Light;
 
+struct Play {
+    time: f32,
+}
+@group(3) @binding(0)
+var<uniform> play: Play;
+
 // This is the input from the vertex buffer we created
 // We get the properties from our Vertex struct here
 // Note the index on location -- this relates to the properties placement in the buffer stride

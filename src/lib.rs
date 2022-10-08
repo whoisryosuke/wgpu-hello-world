@@ -34,6 +34,14 @@ struct LightUniform {
     _padding2: u32,
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct PlayUniforms {
+    time: f32,
+    // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
+    _time: u32,
+}
+
 struct State {
     // Graphic context
     surface: wgpu::Surface,
@@ -64,6 +72,10 @@ struct State {
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
     light_render_pipeline: wgpu::RenderPipeline,
+    // Playground Uniforms
+    play_uniform: PlayUniforms,
+    play_buffer: wgpu::Buffer,
+    play_bind_group: wgpu::BindGroup,
 }
 
 fn create_render_pipeline(
@@ -329,6 +341,44 @@ impl State {
             label: None,
         });
 
+        // Playground Uniforms
+        // Create playground uniforms and setup buffer for them
+        let play_uniform = PlayUniforms {
+            time: 0.0,
+            _time: 0,
+        };
+
+        let play_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Play VB"),
+            contents: bytemuck::cast_slice(&[play_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        // Create bind groups for plays
+        let play_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: None,
+            });
+
+        let play_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &play_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: play_buffer.as_entire_binding(),
+            }],
+            label: None,
+        });
+
         // Create depth texture
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
@@ -342,6 +392,7 @@ impl State {
                     &texture_bind_group_layout,
                     &camera_bind_group_layout,
                     &light_bind_group_layout,
+                    &play_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
             });
@@ -405,6 +456,9 @@ impl State {
             light_buffer,
             light_bind_group,
             light_render_pipeline,
+            play_uniform,
+            play_buffer,
+            play_bind_group,
         }
     }
 
@@ -530,6 +584,7 @@ impl State {
                 0..self.instances.len() as u32,
                 &self.camera_bind_group,
                 &self.light_bind_group,
+                &self.play_bind_group,
             );
         }
 
