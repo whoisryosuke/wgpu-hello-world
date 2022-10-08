@@ -82,7 +82,9 @@ fn vs_main(
 
     // We set the "position" by using the `clip_position` property
     // We multiply it by the camera position matrix and the instance position matrix
-    out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
+    var original_position: vec3<f32> = model.position;
+    var new_position: vec3<f32> = vec3<f32>(model.position.x, model.position.y, model.position.z + sin(play.time));
+    out.clip_position = camera.view_proj * model_matrix * vec4<f32>(new_position, 1.0);
     return out;
 }
 

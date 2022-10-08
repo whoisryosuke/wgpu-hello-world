@@ -1,4 +1,4 @@
-use std::iter;
+use std::{iter, time::SystemTime};
 
 use cgmath::prelude::*;
 use wgpu::util::DeviceExt;
@@ -73,6 +73,7 @@ struct State {
     light_bind_group: wgpu::BindGroup,
     light_render_pipeline: wgpu::RenderPipeline,
     // Playground Uniforms
+    time: SystemTime,
     play_uniform: PlayUniforms,
     play_buffer: wgpu::Buffer,
     play_bind_group: wgpu::BindGroup,
@@ -435,6 +436,8 @@ impl State {
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
 
+        let time = SystemTime::now();
+
         Self {
             surface,
             device,
@@ -459,6 +462,7 @@ impl State {
             play_uniform,
             play_buffer,
             play_bind_group,
+            time,
         }
     }
 
@@ -515,6 +519,24 @@ impl State {
             0,
             bytemuck::cast_slice(&[self.light_uniform]),
         );
+
+        // Update playground uniforms
+        // Sync time
+        match self.time.elapsed() {
+            Ok(elapsed) => {
+                self.play_uniform.time = elapsed.as_secs_f32();
+                println!("Time: {}", elapsed.as_secs_f32());
+                self.queue.write_buffer(
+                    &self.play_buffer,
+                    0,
+                    bytemuck::cast_slice(&[self.play_uniform]),
+                );
+            }
+            Err(e) => {
+                // an error occurred!
+                println!("Error: {e:?}");
+            }
+        }
     }
 
     // Primary render flow
