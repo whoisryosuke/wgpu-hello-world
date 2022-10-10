@@ -91,8 +91,6 @@ struct State {
     play_uniform: PlayUniforms,
     play_buffer: wgpu::Buffer,
     play_bind_group: wgpu::BindGroup,
-    // Playground variables
-    mouse: UserMouseInput,
 }
 
 fn create_render_pipeline(
@@ -454,13 +452,6 @@ impl State {
 
         let time = SystemTime::now();
 
-        // Initialize user mouse input
-        let mouse = UserMouseInput {
-            initial_position: PhysicalPosition { x: 0.0, y: 0.0 },
-            position: PhysicalPosition { x: 0.0, y: 0.0 },
-            pressed: false,
-        };
-
         Self {
             surface,
             device,
@@ -486,7 +477,6 @@ impl State {
             play_buffer,
             play_bind_group,
             time,
-            mouse,
         }
     }
 
@@ -509,50 +499,13 @@ impl State {
         self.camera_controller.process_events(event);
 
         match event {
-            // Check for mouse input
-            WindowEvent::MouseInput { state, button, .. } => match button {
-                MouseButton::Left => {
-                    match state {
-                        ElementState::Pressed => {
-                            println!("Mouse pressed");
-                            self.mouse.pressed = true;
-                        }
-                        ElementState::Released => {
-                            println!("Mouse unpressed");
-                            self.mouse.pressed = false;
-
-                            // Calc distance (for debug)
-                            let x_dist = self.mouse.initial_position.x - self.mouse.position.x;
-                            let y_dist = self.mouse.initial_position.y - self.mouse.position.y;
-
-                            println!("X: {x_dist} -- Y: {y_dist}");
-
-                            // Clear the mouse position so we get it fresh each time
-                            self.mouse.reset_position();
-                        }
-                    }
-                    true
-                }
-                _ => false,
-            },
             WindowEvent::CursorMoved { position, .. } => {
-                // self.clear_color = wgpu::Color {
-                //     r: 0.0,
-                //     g: position.y as f64 / self.size.height as f64,
-                //     b: position.x as f64 / self.size.width as f64,
-                //     a: 1.0,
-                // };
-                // Mouse pressed? Track mouse movement for dragging
-                if self.mouse.pressed {
-                    // Do we have initial position?
-                    if self.mouse.initial_position.x == 0.0 {
-                        self.mouse.initial_position = position.clone();
-                    }
-
-                    // Save current mouse position
-                    self.mouse.position = position.clone();
-                    println!("Mouse pressed - recording position")
-                }
+                self.clear_color = wgpu::Color {
+                    r: 0.0,
+                    g: position.y as f64 / self.size.height as f64,
+                    b: position.x as f64 / self.size.width as f64,
+                    a: 1.0,
+                };
                 true
             }
             _ => false,

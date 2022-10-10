@@ -1,6 +1,6 @@
 use cgmath::prelude::*;
 
-use winit::event::*;
+use winit::{dpi::PhysicalPosition, event::*};
 
 pub struct Camera {
     pub eye: cgmath::Point3<f32>,
@@ -50,6 +50,10 @@ pub struct CameraController {
     is_backward_pressed: bool,
     is_left_pressed: bool,
     is_right_pressed: bool,
+    is_mouse_pressed: bool,
+
+    prev_position: PhysicalPosition<f64>,
+    position: PhysicalPosition<f64>,
 }
 
 impl CameraController {
@@ -62,11 +66,55 @@ impl CameraController {
             is_backward_pressed: false,
             is_left_pressed: false,
             is_right_pressed: false,
+            is_mouse_pressed: false,
+
+            prev_position: PhysicalPosition { x: 0.0, y: 0.0 },
+            position: PhysicalPosition { x: 0.0, y: 0.0 },
         }
     }
 
     pub fn process_events(&mut self, event: &WindowEvent) -> bool {
         match event {
+            // Check for mouse input
+            WindowEvent::MouseInput { state, button, .. } => match button {
+                MouseButton::Left => {
+                    match state {
+                        ElementState::Pressed => {
+                            println!("Mouse pressed");
+                            self.is_mouse_pressed = true;
+                        }
+                        ElementState::Released => {
+                            println!("Mouse unpressed");
+                            self.is_mouse_pressed = false;
+                            self.prev_position = PhysicalPosition { x: 0.0, y: 0.0 };
+                        }
+                    }
+                    true
+                }
+                _ => false,
+            },
+            WindowEvent::CursorMoved { position, .. } => {
+                // self.clear_color = wgpu::Color {
+                //     r: 0.0,
+                //     g: position.y as f64 / self.size.height as f64,
+                //     b: position.x as f64 / self.size.width as f64,
+                //     a: 1.0,
+                // };
+                // Mouse pressed? Track mouse movement for dragging
+                if self.is_mouse_pressed {
+                    // Do we have initial position?
+                    if self.prev_position.x == 0.0 {
+                        self.prev_position = position.clone();
+                    } else {
+                        self.prev_position = self.position.clone();
+                    }
+
+                    // Save current mouse position
+                    self.position = position.clone();
+                    println!("Mouse pressed - recording position")
+                }
+                true
+            }
             WindowEvent::KeyboardInput {
                 input:
                     KeyboardInput {
@@ -113,14 +161,18 @@ impl CameraController {
         let forward = camera.target - camera.eye;
         let forward_norm = forward.normalize();
         let forward_mag = forward.magnitude();
+        let x_dist = ((self.prev_position.x - self.position.x) / 100.0) as f32;
+        let y_dist = ((self.prev_position.y - self.position.y) / 100.0) as f32;
 
         // Prevents glitching when camera gets too close to the
         // center of the scene.
-        if self.is_forward_pressed && forward_mag > self.speed {
-            camera.eye += forward_norm * self.speed;
+        if self.is_mouse_pressed && forward_mag > y_dist && y_dist > 0.0 {
+            println!("Going up!");
+            camera.eye += forward_norm * y_dist.abs();
         }
-        if self.is_backward_pressed {
-            camera.eye -= forward_norm * self.speed;
+        if self.is_mouse_pressed && y_dist < 0.0 {
+            println!("Going down!");
+            camera.eye -= forward_norm * y_dist.abs();
         }
 
         let right = forward_norm.cross(camera.up);
@@ -129,6 +181,15 @@ impl CameraController {
         let forward = camera.target - camera.eye;
         let forward_mag = forward.magnitude();
 
+        if self.is_mouse_pressed {
+            dbg!(x_dist);
+            dbg!(y_dist);
+
+            // Horizontal + Vertical movement
+            let horizontal_movement = (forward + right * x_dist).normalize();
+            // let vertical_movement = (forward + camera.up * y_dist).normalize();
+            camera.eye = camera.target - horizontal_movement * forward_mag;
+        }
         if self.is_right_pressed {
             // Rescale the distance between the target and eye so
             // that it doesn't change. The eye therefore still
