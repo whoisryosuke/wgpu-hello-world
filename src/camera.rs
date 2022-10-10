@@ -165,8 +165,9 @@ impl CameraController {
         let x_dist = ((self.prev_position.x - self.position.x) / 100.0) as f32;
         let y_dist = ((self.prev_position.y - self.position.y) / 100.0) as f32;
 
-        // Prevents glitching when camera gets too close to the
-        // center of the scene.
+        // Handle right click input (zoom in/out for up/down)
+        // Checking for forward_mag prevents glitching when camera
+        // gets too close to the center of the scene.
         if self.is_mouse_pressed && forward_mag > y_dist && y_dist > 0.0 {
             println!("Going up!");
             camera.eye += forward_norm * y_dist.abs();
