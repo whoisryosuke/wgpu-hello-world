@@ -1,6 +1,7 @@
 use std::{iter, time::SystemTime};
 
 use cgmath::prelude::*;
+use primitives::DrawPrimitive;
 use wgpu::util::DeviceExt;
 use winit::{
     dpi::PhysicalPosition,
@@ -15,10 +16,16 @@ use wasm_bindgen::prelude::*;
 mod camera;
 mod instance;
 mod model;
+mod primitives;
 mod resources;
 mod texture;
-use crate::camera::{Camera, CameraController, CameraUniform};
 use crate::instance::{Instance, InstanceRaw};
+use crate::primitives::cube::CUBE_VERTICES;
+use crate::primitives::PrimitiveMesh;
+use crate::{
+    camera::{Camera, CameraController, CameraUniform},
+    primitives::PrimitiveVertex,
+};
 use model::{DrawLight, DrawModel, Vertex};
 
 // Constants for instances
@@ -41,19 +48,6 @@ struct PlayUniforms {
     time: f32,
     // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
     _time: u32,
-}
-
-struct UserMouseInput {
-    initial_position: PhysicalPosition<f64>,
-    position: PhysicalPosition<f64>,
-    pressed: bool,
-}
-
-impl UserMouseInput {
-    fn reset_position(&mut self) {
-        self.initial_position = PhysicalPosition { x: 0.0, y: 0.0 };
-        self.position = PhysicalPosition { x: 0.0, y: 0.0 };
-    }
 }
 
 struct State {
@@ -91,6 +85,9 @@ struct State {
     play_uniform: PlayUniforms,
     play_buffer: wgpu::Buffer,
     play_bind_group: wgpu::BindGroup,
+    // Primitive
+    primitive_render_pipeline: wgpu::RenderPipeline,
+    // cube: PrimitiveMesh,
 }
 
 fn create_render_pipeline(
@@ -447,6 +444,24 @@ impl State {
             )
         };
 
+        let primitive_render_pipeline = {
+            let shader = wgpu::ShaderModuleDescriptor {
+                label: Some("Normal Shader"),
+                source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+            };
+            create_render_pipeline(
+                &device,
+                &render_pipeline_layout,
+                config.format,
+                Some(texture::Texture::DEPTH_FORMAT),
+                &[PrimitiveVertex::desc(), InstanceRaw::desc()],
+                shader,
+            )
+        };
+
+        // Load primitives
+        // let cube = PrimitiveMesh::new(&device, CUBE_VERTICES);
+
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
 
@@ -477,6 +492,8 @@ impl State {
             play_buffer,
             play_bind_group,
             time,
+            primitive_render_pipeline,
+            // cube,
         }
     }
 
@@ -622,6 +639,14 @@ impl State {
                 &self.light_bind_group,
                 &self.play_bind_group,
             );
+
+            // render_pass.set_pipeline(&self.primitive_render_pipeline);
+            // render_pass.draw_primitive(
+            //     &self.cube,
+            //     &self.camera_bind_group,
+            //     &self.light_bind_group,
+            //     &self.play_bind_group,
+            // )
         }
 
         self.queue.submit(iter::once(encoder.finish()));
