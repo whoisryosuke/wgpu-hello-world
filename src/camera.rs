@@ -87,6 +87,7 @@ impl CameraController {
                             println!("Mouse unpressed");
                             self.is_mouse_pressed = false;
                             self.prev_position = PhysicalPosition { x: 0.0, y: 0.0 };
+                            self.position = PhysicalPosition { x: 0.0, y: 0.0 };
                         }
                     }
                     true
