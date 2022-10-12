@@ -316,6 +316,11 @@ impl State {
                 .await
                 .expect("Couldn't load model. Maybe path is wrong?");
 
+        let gltf_model =
+            resources::load_model_gltf("scene.gltf", &device, &queue, &texture_bind_group_layout)
+                .await
+                .expect("Couldn't load model. Maybe path is wrong?");
+
         // Lighting
         // Create light uniforms and setup buffer for them
         let light_uniform = LightUniform {

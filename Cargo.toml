@@ -11,6 +11,7 @@ bytemuck = { version = "1.12.1", features = [ "derive" ] }
 cfg-if = "1.0.0"
 cgmath = "0.18.0"
 env_logger = "0.9.1"
+gltf = "1.0.0"
 image = { version = "0.24.4", default-features = false, features = ["png", "jpeg"] }
 log = "0.4.17"
 pollster = "0.2.5"

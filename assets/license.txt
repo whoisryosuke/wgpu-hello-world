@@ -1,0 +1,11 @@
+Model Information:
+* title:	NES Controller - WCG
+* source:	https://sketchfab.com/3d-models/nes-controller-wcg-5262bfa778d548549c7edac75ea14d09
+* author:	Vanillatography (https://sketchfab.com/vanillatography)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "NES Controller - WCG" (https://sketchfab.com/3d-models/nes-controller-wcg-5262bfa778d548549c7edac75ea14d09) by Vanillatography (https://sketchfab.com/vanillatography) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
