@@ -87,7 +87,7 @@ struct State {
     play_bind_group: wgpu::BindGroup,
     // Primitive
     primitive_render_pipeline: wgpu::RenderPipeline,
-    // cube: PrimitiveMesh,
+    cube: PrimitiveMesh,
 }
 
 fn create_render_pipeline(
@@ -408,6 +408,17 @@ impl State {
                 ],
                 push_constant_ranges: &[],
             });
+        let primitive_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Primitive Pipeline Layout"),
+                // We add any bind groups here (texture and camera)
+                bind_group_layouts: &[
+                    &camera_bind_group_layout,
+                    &light_bind_group_layout,
+                    &play_bind_group_layout,
+                ],
+                push_constant_ranges: &[],
+            });
 
         let render_pipeline = {
             let shader = wgpu::ShaderModuleDescriptor {
@@ -447,11 +458,11 @@ impl State {
         let primitive_render_pipeline = {
             let shader = wgpu::ShaderModuleDescriptor {
                 label: Some("Normal Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(include_str!("primitive.wgsl").into()),
             };
             create_render_pipeline(
                 &device,
-                &render_pipeline_layout,
+                &primitive_pipeline_layout,
                 config.format,
                 Some(texture::Texture::DEPTH_FORMAT),
                 &[PrimitiveVertex::desc(), InstanceRaw::desc()],
@@ -460,7 +471,7 @@ impl State {
         };
 
         // Load primitives
-        // let cube = PrimitiveMesh::new(&device, CUBE_VERTICES);
+        let cube = PrimitiveMesh::new(&device, CUBE_VERTICES);
 
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
@@ -493,7 +504,7 @@ impl State {
             play_bind_group,
             time,
             primitive_render_pipeline,
-            // cube,
+            cube,
         }
     }
 
@@ -630,23 +641,23 @@ impl State {
             );
 
             // Setup render pipeline
-            render_pass.set_pipeline(&self.render_pipeline);
-            // Draw the models
-            render_pass.draw_model_instanced(
-                &self.obj_model,
-                0..self.instances.len() as u32,
-                &self.camera_bind_group,
-                &self.light_bind_group,
-                &self.play_bind_group,
-            );
-
-            // render_pass.set_pipeline(&self.primitive_render_pipeline);
-            // render_pass.draw_primitive(
-            //     &self.cube,
+            // render_pass.set_pipeline(&self.render_pipeline);
+            // // Draw the models
+            // render_pass.draw_model_instanced(
+            //     &self.obj_model,
+            //     0..self.instances.len() as u32,
             //     &self.camera_bind_group,
             //     &self.light_bind_group,
             //     &self.play_bind_group,
-            // )
+            // );
+
+            render_pass.set_pipeline(&self.primitive_render_pipeline);
+            render_pass.draw_primitive(
+                &self.cube,
+                &self.camera_bind_group,
+                &self.light_bind_group,
+                &self.play_bind_group,
+            )
         }
 
         self.queue.submit(iter::once(encoder.finish()));
