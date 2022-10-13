@@ -1,7 +1,6 @@
 use std::{iter, time::SystemTime};
 
 use cgmath::prelude::*;
-use primitives::DrawPrimitive;
 use wgpu::util::DeviceExt;
 use winit::{
     dpi::PhysicalPosition,
@@ -19,13 +18,10 @@ mod model;
 mod primitives;
 mod resources;
 mod texture;
+use crate::camera::{Camera, CameraController, CameraUniform};
 use crate::instance::{Instance, InstanceRaw};
-use crate::primitives::cube::CUBE_VERTICES;
+use crate::primitives::cube::{cube_indices, CUBE_VERTICES};
 use crate::primitives::PrimitiveMesh;
-use crate::{
-    camera::{Camera, CameraController, CameraUniform},
-    primitives::PrimitiveVertex,
-};
 use model::{DrawLight, DrawModel, Vertex};
 
 // Constants for instances
@@ -86,8 +82,7 @@ struct State {
     play_buffer: wgpu::Buffer,
     play_bind_group: wgpu::BindGroup,
     // Primitive
-    primitive_render_pipeline: wgpu::RenderPipeline,
-    // cube: PrimitiveMesh,
+    cube: PrimitiveMesh,
 }
 
 fn create_render_pipeline(
@@ -444,23 +439,15 @@ impl State {
             )
         };
 
-        let primitive_render_pipeline = {
-            let shader = wgpu::ShaderModuleDescriptor {
-                label: Some("Normal Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
-            };
-            create_render_pipeline(
-                &device,
-                &render_pipeline_layout,
-                config.format,
-                Some(texture::Texture::DEPTH_FORMAT),
-                &[PrimitiveVertex::desc(), InstanceRaw::desc()],
-                shader,
-            )
-        };
-
         // Load primitives
-        // let cube = PrimitiveMesh::new(&device, CUBE_VERTICES);
+        let cube = PrimitiveMesh::new(
+            &device,
+            &queue,
+            &texture_bind_group_layout,
+            CUBE_VERTICES,
+            &cube_indices(),
+        )
+        .await;
 
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
@@ -492,8 +479,7 @@ impl State {
             play_buffer,
             play_bind_group,
             time,
-            primitive_render_pipeline,
-            // cube,
+            cube,
         }
     }
 
@@ -632,13 +618,13 @@ impl State {
             // Setup render pipeline
             render_pass.set_pipeline(&self.render_pipeline);
             // Draw the models
-            render_pass.draw_model_instanced(
-                &self.obj_model,
-                0..self.instances.len() as u32,
-                &self.camera_bind_group,
-                &self.light_bind_group,
-                &self.play_bind_group,
-            );
+            // render_pass.draw_model_instanced(
+            //     &self.obj_model,
+            //     0..self.instances.len() as u32,
+            //     &self.camera_bind_group,
+            //     &self.light_bind_group,
+            //     &self.play_bind_group,
+            // );
 
             // render_pass.set_pipeline(&self.primitive_render_pipeline);
             // render_pass.draw_primitive(
@@ -646,7 +632,14 @@ impl State {
             //     &self.camera_bind_group,
             //     &self.light_bind_group,
             //     &self.play_bind_group,
-            // )
+            // );
+            render_pass.draw_model_instanced(
+                &self.cube.model,
+                0..self.instances.len() as u32,
+                &self.camera_bind_group,
+                &self.light_bind_group,
+                &self.play_bind_group,
+            );
         }
 
         self.queue.submit(iter::once(encoder.finish()));
