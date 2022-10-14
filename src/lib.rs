@@ -18,10 +18,13 @@ mod model;
 mod primitives;
 mod resources;
 mod texture;
-use crate::camera::{Camera, CameraController, CameraUniform};
 use crate::instance::{Instance, InstanceRaw};
 use crate::primitives::cube::{cube_indices, CUBE_VERTICES};
 use crate::primitives::PrimitiveMesh;
+use crate::{
+    camera::{Camera, CameraController, CameraUniform},
+    primitives::cube::cube_vertices,
+};
 use model::{DrawLight, DrawModel, Vertex};
 
 // Constants for instances
@@ -444,7 +447,7 @@ impl State {
             &device,
             &queue,
             &texture_bind_group_layout,
-            CUBE_VERTICES,
+            &cube_vertices(),
             &cube_indices(),
         )
         .await;
