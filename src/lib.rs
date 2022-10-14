@@ -19,7 +19,7 @@ mod primitives;
 mod resources;
 mod texture;
 use crate::instance::{Instance, InstanceRaw};
-use crate::primitives::cube::{cube_indices, CUBE_VERTICES};
+use crate::primitives::cube::cube_indices;
 use crate::primitives::PrimitiveMesh;
 use crate::{
     camera::{Camera, CameraController, CameraUniform},
@@ -447,7 +447,7 @@ impl State {
             &device,
             &queue,
             &texture_bind_group_layout,
-            &cube_vertices(),
+            &cube_vertices(0.5),
             &cube_indices(),
         )
         .await;
