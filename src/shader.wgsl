@@ -71,12 +71,12 @@ fn vs_main(
     out.tex_coords = model.tex_coords;
 
     out.world_normal = normal_matrix * model.normal;
-    var world_position: vec4<f32> = model_matrix * vec4<f32>(model.position, 1.0);
+    var world_position: vec4<f32> = vec4<f32>(model.position, 1.0);
     out.world_position = world_position.xyz;
 
     // We set the "position" by using the `clip_position` property
     // We multiply it by the camera position matrix and the instance position matrix
-    out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
+    out.clip_position = camera.view_proj * vec4<f32>(model.position, 1.0);
     return out;
 }
 
@@ -109,5 +109,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let result = (ambient_color + diffuse_color + specular_color) * object_color.xyz;
 
-    return vec4<f32>(result, object_color.a);
+    // return vec4<f32>(result, object_color.a);
+    return vec4<f32>(in.tex_coords, 1.0, object_color.a);
 }

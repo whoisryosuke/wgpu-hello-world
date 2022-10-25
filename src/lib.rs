@@ -425,7 +425,7 @@ impl State {
         // Bind the camera to the shaders
 
         let camera = Camera {
-            eye: (0.0, 5.0, -10.0).into(),
+            eye: (0.0, 0.0, -3.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: cgmath::Vector3::unit_y(),
             aspect: config.width as f32 / config.height as f32,
@@ -508,7 +508,7 @@ impl State {
         // Load model from disk or as a HTTP request (for web support)
         log::warn!("Load model");
         let obj_model =
-            resources::load_model("banana.obj", &device, &queue, &texture_bind_group_layout)
+            resources::load_model("plane.obj", &device, &queue, &texture_bind_group_layout)
                 .await
                 .expect("Couldn't load model. Maybe path is wrong?");
 
@@ -714,9 +714,9 @@ impl State {
 
                         // A standard clear color
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
+                            r: 0.05,
+                            g: 0.05,
+                            b: 0.05,
                             a: 1.0,
                         }),
                         store: true,
@@ -737,20 +737,19 @@ impl State {
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
             // Setup lighting pipeline
-            render_pass.set_pipeline(&self.light_render_pipeline);
+            // render_pass.set_pipeline(&self.light_render_pipeline);
             // Draw/calculate the lighting on models
-            render_pass.draw_light_model(
-                &self.obj_model,
-                &self.camera_bind_group,
-                &self.light_bind_group,
-            );
+            // render_pass.draw_light_model(
+            //     &self.obj_model,
+            //     &self.camera_bind_group,
+            //     &self.light_bind_group,
+            // );
 
             // Setup render pipeline
             render_pass.set_pipeline(&self.render_pipeline);
             // Draw the models
-            render_pass.draw_model_instanced(
+            render_pass.draw_model(
                 &self.obj_model,
-                0..self.instances.len() as u32,
                 &self.camera_bind_group,
                 &self.light_bind_group,
             );
