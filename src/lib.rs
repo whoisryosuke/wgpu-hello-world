@@ -5,7 +5,6 @@ use wgpu::util::DeviceExt;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -16,8 +15,12 @@ mod instance;
 mod model;
 mod resources;
 mod texture;
-use crate::camera::{Camera, CameraController, CameraUniform};
+mod window;
 use crate::instance::{Instance, InstanceRaw};
+use crate::{
+    camera::{Camera, CameraController, CameraUniform},
+    window::Window,
+};
 use model::{DrawLight, DrawModel, Vertex};
 
 // Constants for instances
@@ -129,12 +132,12 @@ fn create_render_pipeline(
 impl State {
     // Initialize the state
     async fn new(window: &Window) -> Self {
-        let size = window.inner_size();
+        let size = window.window.inner_size();
 
         // The instance is a handle to our GPU
         // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
         let instance = wgpu::Instance::new(wgpu::Backends::all());
-        let surface = unsafe { instance.create_surface(window) };
+        let surface = unsafe { instance.create_surface(&window.window) };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -551,25 +554,21 @@ pub async fn run() {
         }
     }
 
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
-        .with_title("ryos wgpu playground")
-        .build(&event_loop)
-        .unwrap();
+    let window = Window::new();
 
     #[cfg(target_arch = "wasm32")]
     {
         // Winit prevents sizing with CSS, so we have to set
         // the size manually when on web.
         use winit::dpi::PhysicalSize;
-        window.set_inner_size(PhysicalSize::new(450, 400));
+        window.window.set_inner_size(PhysicalSize::new(450, 400));
 
         use winit::platform::web::WindowExtWebSys;
         web_sys::window()
             .and_then(|win| win.document())
             .and_then(|doc| {
                 let dst = doc.body()?;
-                let canvas = web_sys::Element::from(window.canvas());
+                let canvas = web_sys::Element::from(window.window.canvas());
                 dst.append_child(&canvas).ok()?;
                 Some(())
             })
@@ -579,12 +578,12 @@ pub async fn run() {
     // State::new uses async code, so we're going to wait for it to finish
     let mut state = State::new(&window).await;
 
-    event_loop.run(move |event, _, control_flow| {
+    window.event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {
                 ref event,
                 window_id,
-            } if window_id == window.id() => {
+            } if window_id == window.window.id() => {
                 if !state.input(event) {
                     // Handle window events (like resizing, or key inputs)
                     // This is stuff from `winit` -- see their docs for more info
@@ -610,7 +609,7 @@ pub async fn run() {
                     }
                 }
             }
-            Event::RedrawRequested(window_id) if window_id == window.id() => {
+            Event::RedrawRequested(window_id) if window_id == window.window.id() => {
                 state.update();
                 match state.render() {
                     Ok(_) => {}
@@ -627,7 +626,7 @@ pub async fn run() {
             Event::RedrawEventsCleared => {
                 // RedrawRequested will only trigger once, unless we manually
                 // request it.
-                window.request_redraw();
+                window.window.request_redraw();
             }
             _ => {}
         }
