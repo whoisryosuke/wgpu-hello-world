@@ -16,10 +16,13 @@ mod model;
 mod resources;
 mod texture;
 mod window;
-use crate::instance::{Instance, InstanceRaw};
 use crate::{
     camera::{Camera, CameraController, CameraUniform},
     window::Window,
+};
+use crate::{
+    instance::{Instance, InstanceRaw},
+    window::WindowEvents,
 };
 use model::{DrawLight, DrawModel, Vertex};
 
@@ -556,6 +559,7 @@ pub async fn run() {
 
     let window = Window::new();
 
+    // @TODO: Put inside Window module
     #[cfg(target_arch = "wasm32")]
     {
         // Winit prevents sizing with CSS, so we have to set
@@ -578,57 +582,18 @@ pub async fn run() {
     // State::new uses async code, so we're going to wait for it to finish
     let mut state = State::new(&window).await;
 
-    window.event_loop.run(move |event, _, control_flow| {
-        match event {
-            Event::WindowEvent {
-                ref event,
-                window_id,
-            } if window_id == window.window.id() => {
-                if !state.input(event) {
-                    // Handle window events (like resizing, or key inputs)
-                    // This is stuff from `winit` -- see their docs for more info
-                    match event {
-                        WindowEvent::CloseRequested
-                        | WindowEvent::KeyboardInput {
-                            input:
-                                KeyboardInput {
-                                    state: ElementState::Pressed,
-                                    virtual_keycode: Some(VirtualKeyCode::Escape),
-                                    ..
-                                },
-                            ..
-                        } => *control_flow = ControlFlow::Exit,
-                        WindowEvent::Resized(physical_size) => {
-                            state.resize(*physical_size);
-                        }
-                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                            // new_inner_size is &&mut so w have to dereference it twice
-                            state.resize(**new_inner_size);
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            Event::RedrawRequested(window_id) if window_id == window.window.id() => {
-                state.update();
-                match state.render() {
-                    Ok(_) => {}
-                    // Reconfigure the surface if it's lost or outdated
-                    Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                        state.resize(state.size)
-                    }
-                    // The system is out of memory, we should probably quit
-                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-
-                    Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
-                }
-            }
-            Event::RedrawEventsCleared => {
-                // RedrawRequested will only trigger once, unless we manually
-                // request it.
-                window.window.request_redraw();
-            }
-            _ => {}
+    // @TODO: Wire up state methods again (like render)
+    window.run(move |event| match event {
+        WindowEvents::Resized { width, height } => {
+            state.resize(winit::dpi::PhysicalSize { width, height });
         }
+        WindowEvents::Draw => {
+            state.update();
+            state.render();
+        }
+        WindowEvents::Keyboard {
+            state,
+            virtual_keycode,
+        } => {}
     });
 }
