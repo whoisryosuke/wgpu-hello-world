@@ -2,7 +2,7 @@ use std::iter;
 
 use cgmath::prelude::*;
 use context::GraphicsContext;
-use pass::phong::PhongPass;
+use pass::{phong::PhongPass, Pass};
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -31,9 +31,6 @@ use crate::{
 };
 use model::{DrawLight, DrawModel, Vertex};
 
-// Constants for instances
-const NUM_INSTANCES_PER_ROW: u32 = 10;
-
 struct State {
     ctx: GraphicsContext,
     pass: PhongPass,
@@ -44,9 +41,6 @@ struct State {
     // Cameraf
     camera: Camera,
     camera_controller: CameraController,
-    // Instances
-    instances: Vec<Instance>,
-    instance_buffer: wgpu::Buffer,
     // 3D Model
     obj_model: model::Model,
 }
@@ -74,44 +68,6 @@ impl State {
         // Initialize the pass
         let pass = PhongPass::new(&ctx.device, &ctx.queue, &ctx.config, &camera);
 
-        // Create instance buffer
-        // We create a 2x2 grid of objects by doing 1 nested loop here
-        // And use the "displacement" matrix above to offset objects with a gap
-        const SPACE_BETWEEN: f32 = 3.0;
-        let instances = (0..NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-
-                    let position = cgmath::Vector3 { x, y: 0.0, z };
-
-                    let rotation = if position.is_zero() {
-                        cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        )
-                    } else {
-                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
-                    };
-
-                    Instance { position, rotation }
-                })
-            })
-            .collect::<Vec<_>>();
-
-        // We condense the matrix properties into a flat array (aka "raw data")
-        // (which is how buffers work - so we can "stride" over chunks)
-        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
-        // Create the instance buffer with our data
-        let instance_buffer = ctx
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Instance Buffer"),
-                contents: bytemuck::cast_slice(&instance_data),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-
         // Load model from disk or as a HTTP request (for web support)
         log::warn!("Load model");
         let obj_model = resources::load_model(
@@ -133,8 +89,6 @@ impl State {
             size,
             camera,
             camera_controller,
-            instances,
-            instance_buffer,
             obj_model,
         }
     }
@@ -201,77 +155,12 @@ impl State {
 
     // Primary render flow
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let output = self.ctx.surface.get_current_texture()?;
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        let mut encoder = self
-            .ctx
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
-
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        // Set the clear color during redraw
-                        // This is basically a background color applied if an object isn't taking up space
-
-                        // This sets it a color that changes based on mouse move
-                        // load: wgpu::LoadOp::Clear(self.clear_color),
-
-                        // A standard clear color
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
-                        store: true,
-                    },
-                })],
-                // Create a depth stencil buffer using the depth texture
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.pass.depth_texture.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            });
-
-            // Setup our render pipeline with our config earlier in `new()`
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-
-            // Setup lighting pipeline
-            render_pass.set_pipeline(&self.pass.light_render_pipeline);
-            // Draw/calculate the lighting on models
-            render_pass.draw_light_model(
-                &self.obj_model,
-                &self.pass.camera_bind_group,
-                &self.pass.light_bind_group,
-            );
-
-            // Setup render pipeline
-            render_pass.set_pipeline(&self.pass.render_pipeline);
-            // Draw the models
-            render_pass.draw_model_instanced(
-                &self.obj_model,
-                0..self.instances.len() as u32,
-                &self.pass.camera_bind_group,
-                &self.pass.light_bind_group,
-            );
-        }
-
-        self.ctx.queue.submit(iter::once(encoder.finish()));
-        output.present();
+        self.pass.draw(
+            &self.ctx.surface,
+            &self.ctx.device,
+            &self.ctx.queue,
+            &self.obj_model,
+        );
 
         Ok(())
     }

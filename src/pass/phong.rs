@@ -1,12 +1,20 @@
-use wgpu::{util::DeviceExt, BindGroupLayout};
+use std::iter;
+
+use cgmath::{InnerSpace, Rotation3, Zero};
+use wgpu::{util::DeviceExt, BindGroupLayout, Device, Queue, Surface};
 
 use crate::{
     camera::{Camera, CameraUniform},
     context::create_render_pipeline,
-    instance::InstanceRaw,
-    model::{self, Vertex},
+    instance::{Instance, InstanceRaw},
+    model::{self, DrawLight, DrawModel, Model, Vertex},
     texture,
 };
+
+use super::Pass;
+
+// Constants for instances
+const NUM_INSTANCES_PER_ROW: u32 = 10;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -34,6 +42,9 @@ pub struct PhongPass {
     pub camera_uniform: CameraUniform,
     pub camera_buffer: wgpu::Buffer,
     pub camera_bind_group: wgpu::BindGroup,
+    // Instances
+    instances: Vec<Instance>,
+    instance_buffer: wgpu::Buffer,
 }
 
 impl PhongPass {
@@ -56,7 +67,7 @@ impl PhongPass {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        // Bind the texture to the renderer
+        // Bind the texture to the fragment shader
         // This creates a general texture bind group
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -194,6 +205,42 @@ impl PhongPass {
             )
         };
 
+        // Create instance buffer
+        // We create a 2x2 grid of objects by doing 1 nested loop here
+        // And use the "displacement" matrix above to offset objects with a gap
+        const SPACE_BETWEEN: f32 = 3.0;
+        let instances = (0..NUM_INSTANCES_PER_ROW)
+            .flat_map(|z| {
+                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+
+                    let position = cgmath::Vector3 { x, y: 0.0, z };
+
+                    let rotation = if position.is_zero() {
+                        cgmath::Quaternion::from_axis_angle(
+                            cgmath::Vector3::unit_z(),
+                            cgmath::Deg(0.0),
+                        )
+                    } else {
+                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
+                    };
+
+                    Instance { position, rotation }
+                })
+            })
+            .collect::<Vec<_>>();
+
+        // We condense the matrix properties into a flat array (aka "raw data")
+        // (which is how buffers work - so we can "stride" over chunks)
+        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
+        // Create the instance buffer with our data
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
         PhongPass {
             depth_texture,
             texture_bind_group_layout,
@@ -205,6 +252,86 @@ impl PhongPass {
             camera_bind_group,
             camera_buffer,
             camera_uniform,
+            instances,
+            instance_buffer,
         }
+    }
+}
+
+impl Pass for PhongPass {
+    fn draw(
+        &mut self,
+        surface: &Surface,
+        device: &Device,
+        queue: &Queue,
+        obj_model: &Model,
+    ) -> Result<(), wgpu::SurfaceError> {
+        let output = surface.get_current_texture()?;
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Render Encoder"),
+        });
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        // Set the clear color during redraw
+                        // This is basically a background color applied if an object isn't taking up space
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
+                        store: true,
+                    },
+                })],
+                // Create a depth stencil buffer using the depth texture
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
+            });
+
+            // Setup our render pipeline with our config earlier in `new()`
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
+
+            // Setup lighting pipeline
+            render_pass.set_pipeline(&self.light_render_pipeline);
+            // Draw/calculate the lighting on models
+            render_pass.draw_light_model(
+                &obj_model,
+                &self.camera_bind_group,
+                &self.light_bind_group,
+            );
+
+            // Setup render pipeline
+            render_pass.set_pipeline(&self.render_pipeline);
+            // Draw the models
+            render_pass.draw_model_instanced(
+                &obj_model,
+                0..*&self.instances.len() as u32,
+                &self.camera_bind_group,
+                &self.light_bind_group,
+            );
+        }
+
+        queue.submit(Some(encoder.finish()));
+        output.present();
+
+        // Since the WGPU breaks return with a Result and error
+        // we need to return an `Ok` enum
+        Ok(())
     }
 }
