@@ -23,6 +23,7 @@ mod window;
 use crate::{
     camera::{Camera, CameraController, CameraUniform},
     context::create_render_pipeline,
+    pass::phong::PhongConfig,
     window::Window,
 };
 use crate::{
@@ -38,7 +39,7 @@ struct State {
     size: winit::dpi::PhysicalSize<u32>,
     // Clear color for mouse interactions
     clear_color: wgpu::Color,
-    // Cameraf
+    // Camera
     camera: Camera,
     camera_controller: CameraController,
     // 3D Model
@@ -66,18 +67,17 @@ impl State {
         let camera_controller = CameraController::new(0.2);
 
         // Initialize the pass
-        let pass = PhongPass::new(&ctx.device, &ctx.queue, &ctx.config, &camera);
+        let pass_config = PhongConfig {
+            max_lights: 1,
+            ambient: Default::default(),
+        };
+        let pass = PhongPass::new(&pass_config, &ctx.device, &ctx.queue, &ctx.config, &camera);
 
         // Load model from disk or as a HTTP request (for web support)
         log::warn!("Load model");
-        let obj_model = resources::load_model(
-            "banana.obj",
-            &ctx.device,
-            &ctx.queue,
-            &pass.texture_bind_group_layout,
-        )
-        .await
-        .expect("Couldn't load model. Maybe path is wrong?");
+        let obj_model = resources::load_model("banana.obj", &ctx.device, &ctx.queue)
+            .await
+            .expect("Couldn't load model. Maybe path is wrong?");
 
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
@@ -134,11 +134,11 @@ impl State {
         // Sync local app state with camera
         self.camera_controller.update_camera(&mut self.camera);
         self.pass.camera_uniform.update_view_proj(&self.camera);
-        self.ctx.queue.write_buffer(
-            &self.pass.camera_buffer,
-            0,
-            bytemuck::cast_slice(&[self.pass.camera_uniform]),
-        );
+        // self.ctx.queue.write_buffer(
+        //     &self.pass.camera_buffer,
+        //     0,
+        //     bytemuck::cast_slice(&[self.pass.camera_uniform]),
+        // );
 
         // Update the light
         let old_position: cgmath::Vector3<_> = self.pass.light_uniform.position.into();

@@ -6,7 +6,6 @@ use image::GenericImageView;
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
-    pub sampler: wgpu::Sampler,
 }
 
 impl Texture {
@@ -47,11 +46,7 @@ impl Texture {
             ..Default::default()
         });
 
-        Self {
-            texture,
-            view,
-            sampler,
-        }
+        Self { texture, view }
     }
 
     // Load an image from bytes then generate texture
@@ -117,10 +112,6 @@ impl Texture {
             ..Default::default()
         });
 
-        Ok(Self {
-            texture,
-            view,
-            sampler,
-        })
+        Ok(Self { texture, view })
     }
 }
