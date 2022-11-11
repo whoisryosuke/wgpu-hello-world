@@ -134,11 +134,11 @@ impl State {
         // Sync local app state with camera
         self.camera_controller.update_camera(&mut self.camera);
         self.pass.camera_uniform.update_view_proj(&self.camera);
-        // self.ctx.queue.write_buffer(
-        //     &self.pass.camera_buffer,
-        //     0,
-        //     bytemuck::cast_slice(&[self.pass.camera_uniform]),
-        // );
+        self.ctx.queue.write_buffer(
+            &self.pass.global_uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[self.pass.camera_uniform]),
+        );
 
         // Update the light
         let old_position: cgmath::Vector3<_> = self.pass.light_uniform.position.into();
