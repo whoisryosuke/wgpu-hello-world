@@ -43,7 +43,7 @@ struct State {
     camera: Camera,
     camera_controller: CameraController,
     // 3D Model
-    obj_model: model::Model,
+    models: Vec<model::Model>,
 }
 
 impl State {
@@ -78,6 +78,11 @@ impl State {
         let obj_model = resources::load_model("banana.obj", &ctx.device, &ctx.queue)
             .await
             .expect("Couldn't load model. Maybe path is wrong?");
+        let cube_model = resources::load_model("cube.obj", &ctx.device, &ctx.queue)
+            .await
+            .expect("Couldn't load model. Maybe path is wrong?");
+
+        let models = vec![obj_model, cube_model];
 
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
@@ -89,7 +94,7 @@ impl State {
             size,
             camera,
             camera_controller,
-            obj_model,
+            models,
         }
     }
 
@@ -159,7 +164,7 @@ impl State {
             &self.ctx.surface,
             &self.ctx.device,
             &self.ctx.queue,
-            &self.obj_model,
+            &self.models,
         );
 
         Ok(())

@@ -407,7 +407,7 @@ impl Pass for PhongPass {
         surface: &Surface,
         device: &Device,
         queue: &Queue,
-        obj_model: &Model,
+        models: &Vec<Model>,
     ) -> Result<(), wgpu::SurfaceError> {
         let output = surface.get_current_texture()?;
         let view = output
@@ -463,31 +463,43 @@ impl Pass for PhongPass {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.global_bind_group, &[]);
 
-            self.local_bind_groups.entry(0).or_insert_with(|| {
-                device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("[Phong] Locals"),
-                    layout: &self.local_bind_group_layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: self.local_uniform_buffer.as_entire_binding(),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
-                            resource: wgpu::BindingResource::TextureView(
-                                &obj_model.materials[0].diffuse_texture.view,
-                            ),
-                        },
-                    ],
-                })
-            });
+            let mut model_index = 0;
+            for model in models {
+                self.local_bind_groups
+                    .entry(model_index)
+                    .or_insert_with(|| {
+                        device.create_bind_group(&wgpu::BindGroupDescriptor {
+                            label: Some("[Phong] Locals"),
+                            layout: &self.local_bind_group_layout,
+                            entries: &[
+                                wgpu::BindGroupEntry {
+                                    binding: 0,
+                                    resource: self.local_uniform_buffer.as_entire_binding(),
+                                },
+                                wgpu::BindGroupEntry {
+                                    binding: 1,
+                                    resource: wgpu::BindingResource::TextureView(
+                                        &model.materials[0].diffuse_texture.view,
+                                    ),
+                                },
+                            ],
+                        })
+                    });
 
-            // Draw the models
-            render_pass.draw_model_instanced(
-                &obj_model,
-                0..*&self.instances.len() as u32,
-                &self.local_bind_groups[&0],
-            );
+                model_index += 1;
+            }
+
+            model_index = 0;
+            for model in models {
+                // Draw the models
+                render_pass.draw_model_instanced(
+                    &model,
+                    0..*&self.instances.len() as u32,
+                    &self.local_bind_groups[&model_index],
+                );
+
+                model_index += 1;
+            }
         }
 
         queue.submit(Some(encoder.finish()));

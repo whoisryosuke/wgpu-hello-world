@@ -10,6 +10,6 @@ pub trait Pass {
         surface: &Surface,
         device: &Device,
         queue: &Queue,
-        obj_model: &Model,
+        models: &Vec<Model>,
     ) -> Result<(), wgpu::SurfaceError>;
 }
