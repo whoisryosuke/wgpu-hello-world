@@ -44,19 +44,20 @@ struct State {
     // Camera
     camera: Camera,
     camera_controller: CameraController,
-    // 3D Model
-    models: Vec<Node>,
+    // The 3D models in the scene (as Nodes)
+    nodes: Vec<Node>,
 }
 
 impl State {
     // Initialize the state
     async fn new(window: &Window) -> Self {
+        // Save the window size for use later
         let size = window.window.inner_size();
 
         // Initialize the graphic context
         let ctx = GraphicsContext::new(&window).await;
 
-        // Bind the camera to the shaders
+        // Setup the camera and it's initial position
         let camera = Camera {
             eye: (0.0, 5.0, -10.0).into(),
             target: (0.0, 0.0, 0.0).into(),
@@ -75,7 +76,8 @@ impl State {
         };
         let pass = PhongPass::new(&pass_config, &ctx.device, &ctx.queue, &ctx.config, &camera);
 
-        // Load model from disk or as a HTTP request (for web support)
+        // Create the 3D objects!
+        // Load 3D model from disk or as a HTTP request (for web support)
         log::warn!("Load model");
         let obj_model = resources::load_model("banana.obj", &ctx.device, &ctx.queue)
             .await
@@ -83,6 +85,9 @@ impl State {
         let cube_model = resources::load_model("cube.obj", &ctx.device, &ctx.queue)
             .await
             .expect("Couldn't load model. Maybe path is wrong?");
+
+        // Create instances for each object with locational data (position + rotation)
+        // Renderer currently defaults to using instances. Want one object? Pass a Vec of 1 instance.
 
         // We create a 2x2 grid of objects by doing 1 nested loop here
         // And use the "displacement" matrix above to offset objects with a gap
@@ -110,6 +115,7 @@ impl State {
             })
             .collect::<Vec<_>>();
 
+        // More "manual" placement as an example
         let cube_instances = (0..2)
             .map(|z| {
                 let z = SPACE_BETWEEN * (z as f32);
@@ -123,6 +129,7 @@ impl State {
             })
             .collect::<Vec<_>>();
 
+        // Create the nodes
         let banana_node = Node {
             parent: 0,
             model: obj_model,
@@ -135,7 +142,8 @@ impl State {
             instances: cube_instances,
         };
 
-        let models = vec![banana_node, cube_node];
+        // Put all our nodes into an Vector to loop over later
+        let nodes = vec![banana_node, cube_node];
 
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
@@ -147,7 +155,7 @@ impl State {
             size,
             camera,
             camera_controller,
-            models,
+            nodes,
         }
     }
 
@@ -217,7 +225,7 @@ impl State {
             &self.ctx.surface,
             &self.ctx.device,
             &self.ctx.queue,
-            &self.models,
+            &self.nodes,
         );
 
         Ok(())

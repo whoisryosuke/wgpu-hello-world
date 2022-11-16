@@ -17,6 +17,8 @@ use super::Pass;
 // Constants for instances
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 
+// Global uniform data
+// aka camera position and ambient light color
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct Globals {
@@ -25,6 +27,8 @@ struct Globals {
     ambient: [f32; 4],
 }
 
+// Local uniform data
+// aka the individual model's data
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct Locals {
@@ -34,6 +38,7 @@ struct Locals {
     lights: [f32; 4],
 }
 
+// Uniform for light data (position + color)
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct LightUniform {
@@ -60,7 +65,6 @@ pub struct PhongPass {
     local_bind_groups: HashMap<usize, wgpu::BindGroup>,
     // Textures
     pub depth_texture: texture::Texture,
-    // pub texture_bind_group_layout: BindGroupLayout,
     // Render pipeline
     pub render_pipeline: wgpu::RenderPipeline,
     // Lighting
@@ -70,8 +74,6 @@ pub struct PhongPass {
     // pub light_render_pipeline: wgpu::RenderPipeline,
     // Camera
     pub camera_uniform: CameraUniform,
-    // pub camera_buffer: wgpu::Buffer,
-    // pub camera_bind_group: wgpu::BindGroup,
     // Instances
     instance_buffers: HashMap<usize, wgpu::Buffer>,
 }
@@ -158,6 +160,7 @@ impl PhongPass {
             mag_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
+        // Combine the global uniform, the lights, and the texture sampler into one bind group
         let global_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("[Phong] Globals"),
             layout: &global_bind_group_layout,
@@ -239,7 +242,6 @@ impl PhongPass {
             ..Default::default()
         };
         let color_format = texture::Texture::DEPTH_FORMAT;
-        // let color_format = wgpu::TextureFormat::Depth24Plus;
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("[Phong] Pipeline"),
@@ -271,31 +273,6 @@ impl PhongPass {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
-        // Bind the texture to the fragment shader
-        // This creates a general texture bind group
-        // let texture_bind_group_layout =
-        //     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        //         entries: &[
-        //             wgpu::BindGroupLayoutEntry {
-        //                 binding: 0,
-        //                 visibility: wgpu::ShaderStages::FRAGMENT,
-        //                 ty: wgpu::BindingType::Texture {
-        //                     multisampled: false,
-        //                     view_dimension: wgpu::TextureViewDimension::D2,
-        //                     sample_type: wgpu::TextureSampleType::Float { filterable: true },
-        //                 },
-        //                 count: None,
-        //             },
-        //             wgpu::BindGroupLayoutEntry {
-        //                 binding: 1,
-        //                 visibility: wgpu::ShaderStages::FRAGMENT,
-        //                 ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-        //                 count: None,
-        //             },
-        //         ],
-        //         label: Some("texture_bind_group_layout"),
-        //     });
-
         // Lighting
         // Create light uniforms and setup buffer for them
         let light_uniform = LightUniform {
@@ -308,21 +285,6 @@ impl PhongPass {
         // Setup camera uniform
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
-
-        // let render_pipeline = {
-        //     let shader = wgpu::ShaderModuleDescriptor {
-        //         label: Some("Normal Shader"),
-        //         source: wgpu::ShaderSource::Wgsl(include_str!("../shader.wgsl").into()),
-        //     };
-        //     create_render_pipeline(
-        //         &device,
-        //         &render_pipeline_layout,
-        //         config.format,
-        //         Some(texture::Texture::DEPTH_FORMAT),
-        //         &[model::ModelVertex::desc(), InstanceRaw::desc()],
-        //         shader,
-        //     )
-        // };
 
         // let light_render_pipeline = {
         //     let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -355,7 +317,6 @@ impl PhongPass {
             local_uniform_buffer,
             local_bind_groups: Default::default(),
             depth_texture,
-            // texture_bind_group_layout,
             render_pipeline,
             camera_uniform,
             light_uniform,
@@ -384,6 +345,8 @@ impl Pass for PhongPass {
             label: Some("Render Encoder"),
         });
 
+        // Setup the render pass
+        // see: clear color, depth stencil
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -413,8 +376,6 @@ impl Pass for PhongPass {
                 }),
             });
 
-            // Setup our render pipeline with our config earlier in `new()`
-
             // // Setup lighting pipeline
             // render_pass.set_pipeline(&self.light_render_pipeline);
             // // Draw/calculate the lighting on models
@@ -428,8 +389,14 @@ impl Pass for PhongPass {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.global_bind_group, &[]);
 
+            // Loop over the nodes/models in a scene and setup the specific models
+            // local uniform bind group and instance buffers to send to shader
+            // This is separate loop from the render because of Rust ownership
+            // (can prob wrap in block instead to limit mutable use)
             let mut model_index = 0;
             for node in nodes {
+                // We create a bind group for each model's local uniform data
+                // and store it in a hash map to look up later
                 self.local_bind_groups
                     .entry(model_index)
                     .or_insert_with(|| {
@@ -451,6 +418,8 @@ impl Pass for PhongPass {
                         })
                     });
 
+                // Setup instance buffer for the model
+                // similar process as above using HashMap
                 self.instance_buffers.entry(model_index).or_insert_with(|| {
                     // We condense the matrix properties into a flat array (aka "raw data")
                     // (which is how buffers work - so we can "stride" over chunks)
@@ -473,10 +442,14 @@ impl Pass for PhongPass {
                 model_index += 1;
             }
 
+            // Render/draw all nodes/models
+            // We reset index here to use again
             model_index = 0;
             for node in nodes {
+                // Set the instance buffer unique to the model
                 render_pass.set_vertex_buffer(1, self.instance_buffers[&model_index].slice(..));
-                // Draw the models
+
+                // Draw all the model instances
                 render_pass.draw_model_instanced(
                     &node.model,
                     0..*&node.instances.len() as u32,
