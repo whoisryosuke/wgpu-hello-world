@@ -8,6 +8,7 @@ use crate::{
     context::create_render_pipeline,
     instance::{Instance, InstanceRaw},
     model::{self, DrawLight, DrawModel, Model, Vertex},
+    node::Node,
     texture,
 };
 
@@ -72,8 +73,7 @@ pub struct PhongPass {
     // pub camera_buffer: wgpu::Buffer,
     // pub camera_bind_group: wgpu::BindGroup,
     // Instances
-    instances: Vec<Instance>,
-    instance_buffer: wgpu::Buffer,
+    instance_buffers: HashMap<usize, wgpu::Buffer>,
 }
 
 impl PhongPass {
@@ -345,40 +345,7 @@ impl PhongPass {
         // };
 
         // Create instance buffer
-        // We create a 2x2 grid of objects by doing 1 nested loop here
-        // And use the "displacement" matrix above to offset objects with a gap
-        const SPACE_BETWEEN: f32 = 3.0;
-        let instances = (0..NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-
-                    let position = cgmath::Vector3 { x, y: 0.0, z };
-
-                    let rotation = if position.is_zero() {
-                        cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        )
-                    } else {
-                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
-                    };
-
-                    Instance { position, rotation }
-                })
-            })
-            .collect::<Vec<_>>();
-
-        // We condense the matrix properties into a flat array (aka "raw data")
-        // (which is how buffers work - so we can "stride" over chunks)
-        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
-        // Create the instance buffer with our data
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        let instance_buffers = HashMap::new();
 
         PhongPass {
             global_bind_group_layout,
@@ -395,8 +362,7 @@ impl PhongPass {
             light_buffer,
             // light_bind_group,
             // light_render_pipeline,
-            instances,
-            instance_buffer,
+            instance_buffers,
         }
     }
 }
@@ -407,7 +373,7 @@ impl Pass for PhongPass {
         surface: &Surface,
         device: &Device,
         queue: &Queue,
-        models: &Vec<Model>,
+        nodes: &Vec<Node>,
     ) -> Result<(), wgpu::SurfaceError> {
         let output = surface.get_current_texture()?;
         let view = output
@@ -448,7 +414,6 @@ impl Pass for PhongPass {
             });
 
             // Setup our render pipeline with our config earlier in `new()`
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
             // // Setup lighting pipeline
             // render_pass.set_pipeline(&self.light_render_pipeline);
@@ -464,7 +429,7 @@ impl Pass for PhongPass {
             render_pass.set_bind_group(0, &self.global_bind_group, &[]);
 
             let mut model_index = 0;
-            for model in models {
+            for node in nodes {
                 self.local_bind_groups
                     .entry(model_index)
                     .or_insert_with(|| {
@@ -479,22 +444,42 @@ impl Pass for PhongPass {
                                 wgpu::BindGroupEntry {
                                     binding: 1,
                                     resource: wgpu::BindingResource::TextureView(
-                                        &model.materials[0].diffuse_texture.view,
+                                        &node.model.materials[0].diffuse_texture.view,
                                     ),
                                 },
                             ],
                         })
                     });
 
+                self.instance_buffers.entry(model_index).or_insert_with(|| {
+                    // We condense the matrix properties into a flat array (aka "raw data")
+                    // (which is how buffers work - so we can "stride" over chunks)
+                    let instance_data = node
+                        .instances
+                        .iter()
+                        .map(Instance::to_raw)
+                        .collect::<Vec<_>>();
+                    // Create the instance buffer with our data
+                    let instance_buffer =
+                        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some("Instance Buffer"),
+                            contents: bytemuck::cast_slice(&instance_data),
+                            usage: wgpu::BufferUsages::VERTEX,
+                        });
+
+                    instance_buffer
+                });
+
                 model_index += 1;
             }
 
             model_index = 0;
-            for model in models {
+            for node in nodes {
+                render_pass.set_vertex_buffer(1, self.instance_buffers[&model_index].slice(..));
                 // Draw the models
                 render_pass.draw_model_instanced(
-                    &model,
-                    0..*&self.instances.len() as u32,
+                    &node.model,
+                    0..*&node.instances.len() as u32,
                     &self.local_bind_groups[&model_index],
                 );
 

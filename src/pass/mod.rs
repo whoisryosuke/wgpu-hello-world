@@ -1,6 +1,6 @@
 use wgpu::{Device, Queue, Surface};
 
-use crate::model::Model;
+use crate::{model::Model, node::Node};
 
 pub mod phong;
 
@@ -10,6 +10,6 @@ pub trait Pass {
         surface: &Surface,
         device: &Device,
         queue: &Queue,
-        models: &Vec<Model>,
+        nodes: &Vec<Node>,
     ) -> Result<(), wgpu::SurfaceError>;
 }

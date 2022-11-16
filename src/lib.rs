@@ -2,6 +2,7 @@ use std::iter;
 
 use cgmath::prelude::*;
 use context::GraphicsContext;
+use node::Node;
 use pass::{phong::PhongPass, Pass};
 use wgpu::util::DeviceExt;
 use winit::{
@@ -16,6 +17,7 @@ mod camera;
 mod context;
 mod instance;
 mod model;
+mod node;
 mod pass;
 mod resources;
 mod texture;
@@ -43,7 +45,7 @@ struct State {
     camera: Camera,
     camera_controller: CameraController,
     // 3D Model
-    models: Vec<model::Model>,
+    models: Vec<Node>,
 }
 
 impl State {
@@ -82,7 +84,58 @@ impl State {
             .await
             .expect("Couldn't load model. Maybe path is wrong?");
 
-        let models = vec![obj_model, cube_model];
+        // We create a 2x2 grid of objects by doing 1 nested loop here
+        // And use the "displacement" matrix above to offset objects with a gap
+        const SPACE_BETWEEN: f32 = 3.0;
+        const NUM_INSTANCES_PER_ROW: u32 = 10;
+        let banana_instances = (0..NUM_INSTANCES_PER_ROW)
+            .flat_map(|z| {
+                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+
+                    let position = cgmath::Vector3 { x, y: 0.0, z };
+
+                    let rotation = if position.is_zero() {
+                        cgmath::Quaternion::from_axis_angle(
+                            cgmath::Vector3::unit_z(),
+                            cgmath::Deg(0.0),
+                        )
+                    } else {
+                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
+                    };
+
+                    Instance { position, rotation }
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let cube_instances = (0..2)
+            .map(|z| {
+                let z = SPACE_BETWEEN * (z as f32);
+                let position = cgmath::Vector3 { x: z, y: 1.0, z };
+                let rotation = if position.is_zero() {
+                    cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.0))
+                } else {
+                    cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
+                };
+                Instance { position, rotation }
+            })
+            .collect::<Vec<_>>();
+
+        let banana_node = Node {
+            parent: 0,
+            model: obj_model,
+            instances: banana_instances,
+        };
+
+        let cube_node = Node {
+            parent: 0,
+            model: cube_model,
+            instances: cube_instances,
+        };
+
+        let models = vec![banana_node, cube_node];
 
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
