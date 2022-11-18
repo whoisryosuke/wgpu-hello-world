@@ -233,6 +233,12 @@ impl State {
         // Update local uniforms
         let mut node_index = 0;
         for node in &mut self.nodes {
+            node.locals.position = [
+                node.locals.position[0],
+                (node.locals.position[1] + 0.001),
+                (node.locals.position[2] - 0.001),
+                node.locals.position[3],
+            ];
             node.locals.color = [
                 node.locals.color[0],
                 (node.locals.color[1] + 0.001),

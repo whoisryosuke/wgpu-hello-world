@@ -79,12 +79,12 @@ fn vs_main(
     out.tex_coords = model.tex_coords;
 
     out.world_normal = normal_matrix * model.normal;
-    var world_position: vec4<f32> = model_matrix * vec4<f32>(model.position, 1.0);
+    var world_position: vec4<f32> = model_matrix * (vec4<f32>(model.position, 1.0) + locals.position);
     out.world_position = world_position.xyz;
 
     // We set the "position" by using the `clip_position` property
     // We multiply it by the camera position matrix and the instance position matrix
-    out.clip_position = globals.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
+    out.clip_position = globals.view_proj * model_matrix * (vec4<f32>(model.position, 1.0) + locals.position);
     return out;
 }
 
