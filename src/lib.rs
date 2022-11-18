@@ -25,7 +25,7 @@ mod window;
 use crate::{
     camera::{Camera, CameraController, CameraUniform},
     context::create_render_pipeline,
-    pass::phong::PhongConfig,
+    pass::phong::{Locals, PhongConfig},
     window::Window,
 };
 use crate::{
@@ -132,12 +132,24 @@ impl State {
         // Create the nodes
         let banana_node = Node {
             parent: 0,
+            locals: Locals {
+                position: [0.0, 0.0, 0.0, 0.0],
+                color: [0.0, 0.0, 1.0, 1.0],
+                normal: [0.0, 0.0, 0.0, 0.0],
+                lights: [0.0, 0.0, 0.0, 0.0],
+            },
             model: obj_model,
             instances: banana_instances,
         };
 
         let cube_node = Node {
             parent: 0,
+            locals: Locals {
+                position: [0.0, 0.0, 0.0, 0.0],
+                color: [0.0, 0.0, 1.0, 1.0],
+                normal: [0.0, 0.0, 0.0, 0.0],
+                lights: [0.0, 0.0, 0.0, 0.0],
+            },
             model: cube_model,
             instances: cube_instances,
         };
@@ -217,16 +229,29 @@ impl State {
             0,
             bytemuck::cast_slice(&[self.pass.light_uniform]),
         );
+
+        // Update local uniforms
+        let mut node_index = 0;
+        for node in &self.nodes {
+            &self
+                .pass
+                .uniform_pool
+                .update_uniform(node_index, node.locals, &self.ctx.queue);
+            node_index += 1;
+        }
     }
 
     // Primary render flow
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        self.pass.draw(
+        match self.pass.draw(
             &self.ctx.surface,
             &self.ctx.device,
             &self.ctx.queue,
             &self.nodes,
-        );
+        ) {
+            Err(err) => println!("Error in rendering"),
+            Ok(_) => (),
+        }
 
         Ok(())
     }
@@ -275,7 +300,10 @@ pub async fn run() {
         }
         WindowEvents::Draw => {
             state.update();
-            state.render();
+            match state.render() {
+                Err(err) => println!("Error in rendering"),
+                Ok(_) => (),
+            }
         }
         WindowEvents::Keyboard {
             state,

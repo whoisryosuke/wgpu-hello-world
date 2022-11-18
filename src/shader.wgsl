@@ -6,10 +6,17 @@ struct Globals {
     view_proj: mat4x4<f32>,
     ambient: vec4<f32>,
 };
+struct Locals {
+    position:  vec4<f32>,
+    color:  vec4<f32>,
+    normal:  vec4<f32>,
+    lights:  vec4<f32>,
+}
 // We create variables for the bind groups
-// This is the "second" group we bound, so we access via `@group(1)`
 @group(0) @binding(0)
 var<uniform> globals: Globals;
+@group(1) @binding(0)
+var<uniform> locals: Locals;
 
 struct Light {
     position: vec3<f32>,
@@ -84,8 +91,10 @@ fn vs_main(
 // Fragment shader
 
 // We create variables for the bind groups 
+// This grabs the texture from the Local uniform
 @group(1) @binding(1)
 var t_diffuse: texture_2d<f32>;
+// This grabs the sampler from the Global uniform
 @group(0)@binding(2)
 var s_diffuse: sampler;
 
@@ -110,6 +119,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let result = (ambient_color + diffuse_color + specular_color) * object_color.xyz;
 
-    return vec4<f32>(result, object_color.a);
+    // return vec4<f32>(result, object_color.a);
+    return locals.color;
     // return vec4<f32>(0.0,0.2,0.8, 1.0);
 }

@@ -12,7 +12,7 @@ use crate::{
     texture,
 };
 
-use super::Pass;
+use super::{Pass, UniformPool};
 
 // Constants for instances
 const NUM_INSTANCES_PER_ROW: u32 = 10;
@@ -31,11 +31,11 @@ struct Globals {
 // aka the individual model's data
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-struct Locals {
-    position: [f32; 4],
-    color: [f32; 4],
-    normal: [f32; 4],
-    lights: [f32; 4],
+pub struct Locals {
+    pub position: [f32; 4],
+    pub color: [f32; 4],
+    pub normal: [f32; 4],
+    pub lights: [f32; 4],
 }
 
 // Uniform for light data (position + color)
@@ -61,8 +61,9 @@ pub struct PhongPass {
     pub global_uniform_buffer: wgpu::Buffer,
     pub global_bind_group: wgpu::BindGroup,
     pub local_bind_group_layout: BindGroupLayout,
-    local_uniform_buffer: wgpu::Buffer,
+    // pub local_uniform_buffer: wgpu::Buffer,
     local_bind_groups: HashMap<usize, wgpu::BindGroup>,
+    pub uniform_pool: UniformPool,
     // Textures
     pub depth_texture: texture::Texture,
     // Render pipeline
@@ -213,12 +214,12 @@ impl PhongPass {
             });
 
         // Local uniform buffer
-        let local_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("[Phong] Locals"),
-            size: local_size,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+        // let local_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        //     label: Some("[Phong] Locals"),
+        //     size: local_size,
+        //     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        //     mapped_at_creation: false,
+        // });
 
         // Setup the render pipeline
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -309,13 +310,16 @@ impl PhongPass {
         // Create instance buffer
         let instance_buffers = HashMap::new();
 
+        let uniform_pool = UniformPool::new("[Phong] Locals", local_size);
+
         PhongPass {
             global_bind_group_layout,
             global_uniform_buffer,
             global_bind_group,
             local_bind_group_layout,
-            local_uniform_buffer,
+            // local_uniform_buffer,
             local_bind_groups: Default::default(),
+            uniform_pool,
             depth_texture,
             render_pipeline,
             camera_uniform,
@@ -389,12 +393,19 @@ impl Pass for PhongPass {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.global_bind_group, &[]);
 
+            // Allocate buffers for local uniforms
+            if (self.uniform_pool.buffers.len() < nodes.len()) {
+                self.uniform_pool.alloc_buffers(nodes.len(), &device);
+            }
+
             // Loop over the nodes/models in a scene and setup the specific models
             // local uniform bind group and instance buffers to send to shader
             // This is separate loop from the render because of Rust ownership
             // (can prob wrap in block instead to limit mutable use)
             let mut model_index = 0;
             for node in nodes {
+                let local_buffer = &self.uniform_pool.buffers[model_index];
+
                 // We create a bind group for each model's local uniform data
                 // and store it in a hash map to look up later
                 self.local_bind_groups
@@ -406,7 +417,7 @@ impl Pass for PhongPass {
                             entries: &[
                                 wgpu::BindGroupEntry {
                                     binding: 0,
-                                    resource: self.local_uniform_buffer.as_entire_binding(),
+                                    resource: local_buffer.as_entire_binding(),
                                 },
                                 wgpu::BindGroupEntry {
                                     binding: 1,
