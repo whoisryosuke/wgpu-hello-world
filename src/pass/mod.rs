@@ -2,6 +2,7 @@ use wgpu::{Device, Queue, Surface};
 
 use crate::{model::Model, node::Node};
 
+pub mod egui;
 pub mod phong;
 
 pub trait Pass {

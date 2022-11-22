@@ -3,7 +3,7 @@ use std::iter;
 use cgmath::prelude::*;
 use context::GraphicsContext;
 use node::Node;
-use pass::{phong::PhongPass, Pass};
+use pass::{egui::EguiPass, phong::PhongPass, Pass};
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -37,6 +37,7 @@ use model::{DrawLight, DrawModel, Vertex};
 struct State {
     ctx: GraphicsContext,
     pass: PhongPass,
+    ui: EguiPass,
     // Window size
     size: winit::dpi::PhysicalSize<u32>,
     // Clear color for mouse interactions
@@ -75,6 +76,15 @@ impl State {
             ambient: Default::default(),
         };
         let pass = PhongPass::new(&pass_config, &ctx.device, &ctx.queue, &ctx.config, &camera);
+
+        let ui = EguiPass::new(
+            &ctx.device,
+            &ctx.queue,
+            &ctx.config,
+            wgpu::TextureFormat::Rgba8Unorm,
+            Some(wgpu::TextureFormat::Rgba8Unorm),
+            2,
+        );
 
         // Create the 3D objects!
         // Load 3D model from disk or as a HTTP request (for web support)
@@ -163,6 +173,7 @@ impl State {
         Self {
             ctx,
             pass,
+            ui,
             clear_color,
             size,
             camera,
