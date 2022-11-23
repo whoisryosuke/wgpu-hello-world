@@ -4,14 +4,14 @@ use winit::{
     window,
 };
 
-pub enum WindowEvents {
+pub enum WindowEvents<'a> {
     Resized {
         width: u32,
         height: u32,
     },
     Keyboard {
         state: ElementState,
-        virtual_keycode: Option<VirtualKeyCode>,
+        virtual_keycode: &'a VirtualKeyCode,
     },
     Draw,
 }
@@ -53,6 +53,18 @@ impl Window {
                                 },
                             ..
                         } => *control_flow = ControlFlow::Exit,
+                        WindowEvent::KeyboardInput {
+                            input:
+                                KeyboardInput {
+                                    state,
+                                    virtual_keycode: Some(keycode),
+                                    ..
+                                },
+                            ..
+                        } => callback(WindowEvents::Keyboard {
+                            state: *state,
+                            virtual_keycode: keycode,
+                        }),
                         WindowEvent::Resized(physical_size) => callback(WindowEvents::Resized {
                             width: physical_size.width,
                             height: physical_size.height,

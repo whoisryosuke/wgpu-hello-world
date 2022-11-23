@@ -65,45 +65,36 @@ impl CameraController {
         }
     }
 
-    pub fn process_events(&mut self, event: &WindowEvent) -> bool {
-        match event {
-            WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        state,
-                        virtual_keycode: Some(keycode),
-                        ..
-                    },
-                ..
-            } => {
-                let is_pressed = *state == ElementState::Pressed;
-                match keycode {
-                    VirtualKeyCode::Space => {
-                        self.is_up_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::LShift => {
-                        self.is_down_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::W | VirtualKeyCode::Up => {
-                        self.is_forward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::A | VirtualKeyCode::Left => {
-                        self.is_left_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::S | VirtualKeyCode::Down => {
-                        self.is_backward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::D | VirtualKeyCode::Right => {
-                        self.is_right_pressed = is_pressed;
-                        true
-                    }
-                    _ => false,
-                }
+    pub fn process_events(
+        &mut self,
+        state: &ElementState,
+        &virtual_keycode: &VirtualKeyCode,
+    ) -> bool {
+        let is_pressed = *state == ElementState::Pressed;
+        match virtual_keycode {
+            VirtualKeyCode::Space => {
+                self.is_up_pressed = is_pressed;
+                true
+            }
+            VirtualKeyCode::LShift => {
+                self.is_down_pressed = is_pressed;
+                true
+            }
+            VirtualKeyCode::W | VirtualKeyCode::Up => {
+                self.is_forward_pressed = is_pressed;
+                true
+            }
+            VirtualKeyCode::A | VirtualKeyCode::Left => {
+                self.is_left_pressed = is_pressed;
+                true
+            }
+            VirtualKeyCode::S | VirtualKeyCode::Down => {
+                self.is_backward_pressed = is_pressed;
+                true
+            }
+            VirtualKeyCode::D | VirtualKeyCode::Right => {
+                self.is_right_pressed = is_pressed;
+                true
             }
             _ => false,
         }

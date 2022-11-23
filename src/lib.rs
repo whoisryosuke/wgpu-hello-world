@@ -190,22 +190,22 @@ impl State {
     }
 
     // Handle input using WindowEvent
-    fn input(&mut self, event: &WindowEvent) -> bool {
+    pub fn keyboard(&mut self, state: ElementState, keycode: &VirtualKeyCode) -> bool {
         // Send any input to camera controller
-        self.camera_controller.process_events(event);
+        self.camera_controller.process_events(&state, &keycode)
 
-        match event {
-            WindowEvent::CursorMoved { position, .. } => {
-                self.clear_color = wgpu::Color {
-                    r: 0.0,
-                    g: position.y as f64 / self.size.height as f64,
-                    b: position.x as f64 / self.size.width as f64,
-                    a: 1.0,
-                };
-                true
-            }
-            _ => false,
-        }
+        // match event {
+        //     WindowEvent::CursorMoved { position, .. } => {
+        //         self.clear_color = wgpu::Color {
+        //             r: 0.0,
+        //             g: position.y as f64 / self.size.height as f64,
+        //             b: position.x as f64 / self.size.width as f64,
+        //             a: 1.0,
+        //         };
+        //         true
+        //     }
+        //     _ => false,
+        // }
     }
 
     fn update(&mut self) {
@@ -303,16 +303,16 @@ pub async fn run() {
     }
 
     // State::new uses async code, so we're going to wait for it to finish
-    let mut state = State::new(&window).await;
+    let mut app = State::new(&window).await;
 
     // @TODO: Wire up state methods again (like render)
     window.run(move |event| match event {
         WindowEvents::Resized { width, height } => {
-            state.resize(winit::dpi::PhysicalSize { width, height });
+            app.resize(winit::dpi::PhysicalSize { width, height });
         }
         WindowEvents::Draw => {
-            state.update();
-            match state.render() {
+            app.update();
+            match app.render() {
                 Err(err) => println!("Error in rendering"),
                 Ok(_) => (),
             }
@@ -320,6 +320,8 @@ pub async fn run() {
         WindowEvents::Keyboard {
             state,
             virtual_keycode,
-        } => {}
+        } => {
+            app.keyboard(state, virtual_keycode);
+        }
     });
 }
