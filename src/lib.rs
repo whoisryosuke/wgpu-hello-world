@@ -2,9 +2,11 @@ use std::iter;
 
 use cgmath::prelude::*;
 use context::GraphicsContext;
+use egui::ClippedPrimitive;
+use egui_wgpu::renderer::{RenderPass, ScreenDescriptor};
 use node::Node;
 use pass::{egui::EguiPass, phong::PhongPass, Pass};
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, Color};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -37,7 +39,7 @@ use model::{DrawLight, DrawModel, Vertex};
 struct State {
     ctx: GraphicsContext,
     pass: PhongPass,
-    ui: EguiPass,
+    ui: egui_wgpu::renderer::RenderPass,
     // Window size
     size: winit::dpi::PhysicalSize<u32>,
     // Clear color for mouse interactions
@@ -47,6 +49,7 @@ struct State {
     camera_controller: CameraController,
     // The 3D models in the scene (as Nodes)
     nodes: Vec<Node>,
+    paint_jobs: Vec<ClippedPrimitive>,
 }
 
 impl State {
@@ -77,14 +80,7 @@ impl State {
         };
         let pass = PhongPass::new(&pass_config, &ctx.device, &ctx.queue, &ctx.config, &camera);
 
-        let ui = EguiPass::new(
-            &ctx.device,
-            &ctx.queue,
-            &ctx.config,
-            wgpu::TextureFormat::Rgba8Unorm,
-            Some(wgpu::TextureFormat::Rgba8Unorm),
-            2,
-        );
+        let ui = RenderPass::new(&ctx.device, wgpu::TextureFormat::Rgba8Unorm, 2);
 
         // Create the 3D objects!
         // Load 3D model from disk or as a HTTP request (for web support)
@@ -170,6 +166,21 @@ impl State {
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
 
+        let mut rect = egui::Mesh::default();
+        // rect.add_triangle(1, 1, 1);
+        rect.add_colored_rect(
+            epaint::Rect {
+                min: egui::pos2(0.0, 0.0),
+                max: egui::pos2(1.0, 1.0),
+            },
+            egui::Color32::default(),
+        );
+
+        // let paint_jobs = vec![ClippedPrimitive {
+        //     clip_rect: egui::Rect::EVERYTHING,
+        //     primitive: epaint::Primitive::Mesh(rect),
+        // }];
+
         Self {
             ctx,
             pass,
@@ -179,6 +190,8 @@ impl State {
             camera,
             camera_controller,
             nodes,
+            paint_jobs: Default::default(),
+            // paint_jobs,
         }
     }
 
@@ -275,6 +288,47 @@ impl State {
             Err(err) => println!("Error in rendering"),
             Ok(_) => (),
         }
+
+        // self.ui.update_texture(&self.ctx.device, &self.ctx.queue, id, image_delta);
+
+        let mut encoder =
+            &mut self
+                .ctx
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Egui Encoder"),
+                });
+        let size = wgpu::Extent3d {
+            width: self.ctx.config.width,
+            height: self.ctx.config.height,
+            depth_or_array_layers: 1,
+        };
+        let desc = wgpu::TextureDescriptor {
+            label: Some("Egui texture"),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+        };
+        let texture = &self.ctx.device.create_texture(&desc);
+        let color_attachment = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        self.ui.execute(
+            encoder,
+            &color_attachment,
+            &self.paint_jobs,
+            &ScreenDescriptor {
+                size_in_pixels: [450, 400],
+                pixels_per_point: 1.0,
+            },
+            Some(Color {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: 0.0,
+            }),
+        );
 
         Ok(())
     }

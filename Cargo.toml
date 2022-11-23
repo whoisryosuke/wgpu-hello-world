@@ -10,14 +10,19 @@ anyhow = "1.0.65"
 bytemuck = { version = "1.12.1", features = [ "derive" ] }
 cfg-if = "1.0.0"
 cgmath = "0.18.0"
-egui = "0.19.0"
+egui = { version = "0.19.0", default-features = false, features = [
+  "bytemuck",
+] }
+egui-wgpu = "0.19.0"
 env_logger = "0.9.1"
+epaint = "0.19.0"
 image = { version = "0.24.4", default-features = false, features = ["png", "jpeg"] }
 log = "0.4.17"
 pollster = "0.2.5"
 tobj = { version = "3.2.1", features = [
     "async",
 ]}
+type-map = "0.5.0"
 wgpu = "0.13.1"
 winit = "0.27.3"
 
