@@ -72,7 +72,7 @@ pub struct PhongPass {
     pub light_uniform: LightUniform,
     pub light_buffer: wgpu::Buffer,
     // pub light_bind_group: wgpu::BindGroup,
-    // pub light_render_pipeline: wgpu::RenderPipeline,
+    pub light_render_pipeline: wgpu::RenderPipeline,
     // Camera
     pub camera_uniform: CameraUniform,
     // Instances
@@ -117,7 +117,7 @@ impl PhongPass {
                     // Lights
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -253,7 +253,7 @@ impl PhongPass {
                 buffers: &vertex_buffers,
             },
             primitive,
-            depth_stencil,
+            depth_stencil: depth_stencil.clone(),
             multisample,
             fragment: Some(wgpu::FragmentState {
                 module: &shader_module,
@@ -274,38 +274,41 @@ impl PhongPass {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
-        // Lighting
-        // Create light uniforms and setup buffer for them
-        let light_uniform = LightUniform {
-            position: [2.0, 2.0, 2.0],
-            _padding: 0,
-            color: [1.0, 1.0, 1.0],
-            _padding2: 0,
-        };
-
         // Setup camera uniform
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
 
-        // let light_render_pipeline = {
-        //     let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        //         label: Some("Light Pipeline Layout"),
-        //         bind_group_layouts: &[&camera_bind_group_layout, &light_bind_group_layout],
-        //         push_constant_ranges: &[],
-        //     });
-        //     let shader = wgpu::ShaderModuleDescriptor {
-        //         label: Some("Light Shader"),
-        //         source: wgpu::ShaderSource::Wgsl(include_str!("../light.wgsl").into()),
-        //     };
-        //     create_render_pipeline(
-        //         &device,
-        //         &layout,
-        //         config.format,
-        //         Some(texture::Texture::DEPTH_FORMAT),
-        //         &[model::ModelVertex::desc()],
-        //         shader,
-        //     )
-        // };
+        let light_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Light Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../light.wgsl").into()),
+        });
+
+        let light_render_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("[Phong] Light Pipeline"),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &light_shader,
+                    entry_point: "vs_main",
+                    buffers: &[model::ModelVertex::desc()],
+                },
+                primitive,
+                depth_stencil,
+                multisample,
+                fragment: Some(wgpu::FragmentState {
+                    module: &light_shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: config.format,
+                        blend: Some(wgpu::BlendState {
+                            alpha: wgpu::BlendComponent::REPLACE,
+                            color: wgpu::BlendComponent::REPLACE,
+                        }),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                multiview: None,
+            });
 
         // Create instance buffer
         let instance_buffers = HashMap::new();
@@ -326,7 +329,7 @@ impl PhongPass {
             light_uniform,
             light_buffer,
             // light_bind_group,
-            // light_render_pipeline,
+            light_render_pipeline,
             instance_buffers,
         }
     }
@@ -379,19 +382,6 @@ impl Pass for PhongPass {
                     stencil_ops: None,
                 }),
             });
-
-            // // Setup lighting pipeline
-            // render_pass.set_pipeline(&self.light_render_pipeline);
-            // // Draw/calculate the lighting on models
-            // render_pass.draw_light_model(
-            //     &obj_model,
-            //     &self.camera_bind_group,
-            //     &self.light_bind_group,
-            // );
-
-            // Setup render pipeline
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.global_bind_group, &[]);
 
             // Allocate buffers for local uniforms
             if (self.uniform_pool.buffers.len() < nodes.len()) {
@@ -452,6 +442,22 @@ impl Pass for PhongPass {
 
                 model_index += 1;
             }
+
+            // Setup lighting pipeline
+            render_pass.set_pipeline(&self.light_render_pipeline);
+            // Draw/calculate the lighting on models
+            render_pass.draw_light_model(
+                &nodes[1].model,
+                &self.global_bind_group,
+                &self
+                    .local_bind_groups
+                    .get(&1)
+                    .expect("No local bind group found for lighting"),
+            );
+
+            // Setup render pipeline
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_bind_group(0, &self.global_bind_group, &[]);
 
             // Render/draw all nodes/models
             // We reset index here to use again
