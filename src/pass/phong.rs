@@ -14,9 +14,6 @@ use crate::{
 
 use super::{Pass, UniformPool};
 
-// Constants for instances
-const NUM_INSTANCES_PER_ROW: u32 = 10;
-
 // Global uniform data
 // aka camera position and ambient light color
 #[repr(C)]
@@ -213,14 +210,6 @@ impl PhongPass {
                 ],
             });
 
-        // Local uniform buffer
-        // let local_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        //     label: Some("[Phong] Locals"),
-        //     size: local_size,
-        //     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        //     mapped_at_creation: false,
-        // });
-
         // Setup the render pipeline
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("[Phong] Pipeline"),
@@ -320,7 +309,6 @@ impl PhongPass {
             global_uniform_buffer,
             global_bind_group,
             local_bind_group_layout,
-            // local_uniform_buffer,
             local_bind_groups: Default::default(),
             uniform_pool,
             depth_texture,
@@ -328,7 +316,6 @@ impl PhongPass {
             camera_uniform,
             light_uniform,
             light_buffer,
-            // light_bind_group,
             light_render_pipeline,
             instance_buffers,
         }
