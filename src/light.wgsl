@@ -39,7 +39,6 @@ fn vs_main(
 ) -> VertexOutput {
     let scale = 0.25;
     var out: VertexOutput;
-    // out.clip_position = globals.view_proj * vec4<f32>(model.position + vec3<f32>(1.0,1.0,1.0) * scale, 1.0);
     out.clip_position = globals.view_proj * vec4<f32>(model.position * scale + light.position, 1.0);
     out.color = light.color;
     return out;
@@ -50,5 +49,4 @@ fn vs_main(
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(in.color, 1.0);
-    // return vec4<f32>(0.0, 0.0, 1.0, 1.0);
 }
