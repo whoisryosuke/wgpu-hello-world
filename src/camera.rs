@@ -1,6 +1,6 @@
 use cgmath::{prelude::*, Point3};
 
-use winit::event::*;
+use winit::{dpi::PhysicalPosition, event::*};
 
 pub struct Camera {
     pub eye: cgmath::Point3<f32>,
@@ -44,12 +44,21 @@ impl CameraUniform {
 
 pub struct CameraController {
     speed: f32,
+    // Keyboard input
     is_up_pressed: bool,
     is_modifier_shift_pressed: bool,
     is_forward_pressed: bool,
     is_backward_pressed: bool,
     is_left_pressed: bool,
     is_right_pressed: bool,
+
+    // Mouse input
+    is_mouse_right_pressed: bool,
+    is_mouse_right_tracked: bool,
+
+    // Mouse position
+    mouse_initial_position: PhysicalPosition<f64>,
+    mouse_current_position: PhysicalPosition<f64>,
 }
 
 impl CameraController {
@@ -62,9 +71,14 @@ impl CameraController {
             is_backward_pressed: false,
             is_left_pressed: false,
             is_right_pressed: false,
+            is_mouse_right_pressed: false,
+            is_mouse_right_tracked: false,
+            mouse_initial_position: PhysicalPosition { x: 0.0, y: 0.0 },
+            mouse_current_position: PhysicalPosition { x: 0.0, y: 0.0 },
         }
     }
 
+    /// Handle keyboard input for camera (like moving camera with WASD keys)
     pub fn process_events(
         &mut self,
         state: &ElementState,
@@ -100,6 +114,62 @@ impl CameraController {
         }
     }
 
+    /// Handle mouse input for camera (like moving camera based on mouse position)
+    pub fn process_mouse_moved(
+        &mut self,
+        position: &PhysicalPosition<f64>,
+        screen_size: &winit::dpi::PhysicalSize<u32>,
+    ) {
+        println!(
+            "Mouse position X: {} - Y : {}",
+            &position.x / screen_size.width as f64,
+            &position.y / screen_size.height as f64
+        );
+
+        // Not tracking? Set initial position
+        if self.is_mouse_right_pressed && !self.is_mouse_right_tracked {
+            self.mouse_initial_position = position.clone();
+            self.is_mouse_right_tracked = true;
+        }
+
+        // Tracking? Set current position
+        if self.is_mouse_right_pressed && self.is_mouse_right_tracked {
+            self.mouse_current_position = position.clone();
+        }
+
+        // Rotate camera based on mouse movement.
+        // We take difference of initial pos and current pos
+        // and use that as base vector in rotation calculations
+        // We use the X for left/right and Y for up/down calcs.
+        // let current_x = &position.x / screen_size.width as f64;
+        // let current_y = &position.y / screen_size.height as f64;
+    }
+
+    pub fn process_mouse_input(
+        &mut self,
+        device_id: &DeviceId,
+        state: &ElementState,
+        button: &MouseButton,
+    ) {
+        // println!("MOUSE INPUT");
+        // println!("Device ID:");
+        // dbg!(device_id);
+        // println!("State:");
+        // dbg!(state);
+        // println!("Button:");
+        // dbg!(button);
+
+        match button {
+            MouseButton::Right => {
+                self.is_mouse_right_pressed = *state == ElementState::Pressed;
+            }
+            // MouseButton::Left => todo!(),
+            // MouseButton::Middle => todo!(),
+            _ => (),
+        }
+    }
+
+    /// The render loop for camera. Updates camera position every frame (or fn call).
     pub fn update_camera(&self, camera: &mut Camera) {
         let forward = camera.target - camera.eye;
         let forward_norm = forward.normalize();

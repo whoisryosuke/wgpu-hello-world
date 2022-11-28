@@ -6,6 +6,7 @@ use node::Node;
 use pass::{phong::PhongPass, Pass};
 use wgpu::util::DeviceExt;
 use winit::{
+    dpi::PhysicalPosition,
     event::*,
     event_loop::{ControlFlow, EventLoop},
 };
@@ -211,6 +212,20 @@ impl State {
         // }
     }
 
+    pub fn mouse_moved(&mut self, position: &PhysicalPosition<f64>) {
+        self.camera_controller
+            .process_mouse_moved(&position, &self.size);
+    }
+    pub fn mouse_input(
+        &mut self,
+        device_id: &DeviceId,
+        state: &ElementState,
+        button: &MouseButton,
+    ) {
+        self.camera_controller
+            .process_mouse_input(device_id, state, button);
+    }
+
     fn update(&mut self) {
         // Sync local app state with camera
         self.camera_controller.update_camera(&mut self.camera);
@@ -325,6 +340,18 @@ pub async fn run() {
             virtual_keycode,
         } => {
             app.keyboard(state, virtual_keycode);
+        }
+
+        WindowEvents::MouseMoved { position } => {
+            app.mouse_moved(position);
+        }
+
+        WindowEvents::MouseInput {
+            device_id,
+            state,
+            button,
+        } => {
+            app.mouse_input(device_id, state, button);
         }
     });
 }

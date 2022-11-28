@@ -1,4 +1,5 @@
 use winit::{
+    dpi::PhysicalPosition,
     event::*,
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
     window,
@@ -12,6 +13,14 @@ pub enum WindowEvents<'a> {
     Keyboard {
         state: ElementState,
         virtual_keycode: &'a VirtualKeyCode,
+    },
+    MouseInput {
+        device_id: &'a DeviceId,
+        state: &'a ElementState,
+        button: &'a MouseButton,
+    },
+    MouseMoved {
+        position: &'a PhysicalPosition<f64>,
     },
     Draw,
 }
@@ -76,28 +85,33 @@ impl Window {
                                 height: new_inner_size.height,
                             })
                         }
+                        WindowEvent::MouseInput {
+                            device_id,
+                            state,
+                            button,
+                            ..
+                        } => callback(WindowEvents::MouseInput {
+                            device_id,
+                            state,
+                            button,
+                        }),
+                        WindowEvent::CursorMoved { position, .. } => {
+                            callback(WindowEvents::MouseMoved {
+                                position: &position,
+                            })
+                        }
                         _ => {}
                     }
                 }
                 Event::RedrawRequested(window_id) if window_id == self.window.id() => {
                     callback(WindowEvents::Draw);
-                    // match state.render() {
-                    //     Ok(_) => {}
-                    //     // Reconfigure the surface if it's lost or outdated
-                    //     Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                    //         // state.resize(state.size)
-                    //     }
-                    //     // The system is out of memory, we should probably quit
-                    //     Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-
-                    //     Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
-                    // }
                 }
                 Event::RedrawEventsCleared => {
                     // RedrawRequested will only trigger once, unless we manually
                     // request it.
                     self.window.request_redraw();
                 }
+
                 _ => {}
             }
         });
