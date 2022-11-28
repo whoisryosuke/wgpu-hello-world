@@ -79,7 +79,7 @@ impl State {
         // Create the 3D objects!
         // Load 3D model from disk or as a HTTP request (for web support)
         log::warn!("Load model");
-        let obj_model = resources::load_model("banana.obj", &ctx.device, &ctx.queue)
+        let obj_model = resources::load_model("ferris.obj", &ctx.device, &ctx.queue)
             .await
             .expect("Couldn't load model. Maybe path is wrong?");
         let cube_model = resources::load_model("cube.obj", &ctx.device, &ctx.queue)
