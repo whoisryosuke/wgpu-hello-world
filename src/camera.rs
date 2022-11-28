@@ -1,4 +1,4 @@
-use cgmath::prelude::*;
+use cgmath::{prelude::*, Point3};
 
 use winit::event::*;
 
@@ -45,7 +45,7 @@ impl CameraUniform {
 pub struct CameraController {
     speed: f32,
     is_up_pressed: bool,
-    is_down_pressed: bool,
+    is_modifier_shift_pressed: bool,
     is_forward_pressed: bool,
     is_backward_pressed: bool,
     is_left_pressed: bool,
@@ -57,7 +57,7 @@ impl CameraController {
         Self {
             speed,
             is_up_pressed: false,
-            is_down_pressed: false,
+            is_modifier_shift_pressed: false,
             is_forward_pressed: false,
             is_backward_pressed: false,
             is_left_pressed: false,
@@ -77,7 +77,7 @@ impl CameraController {
                 true
             }
             VirtualKeyCode::LShift => {
-                self.is_down_pressed = is_pressed;
+                self.is_modifier_shift_pressed = is_pressed;
                 true
             }
             VirtualKeyCode::W | VirtualKeyCode::Up => {
@@ -124,10 +124,44 @@ impl CameraController {
             // Rescale the distance between the target and eye so
             // that it doesn't change. The eye therefore still
             // lies on the circle made by the target and eye.
-            camera.eye = camera.target - (forward + right * self.speed).normalize() * forward_mag;
+            // camera.eye = camera.target - (forward + right * self.speed).normalize() * forward_mag;
+
+            camera.eye = camera.target - (forward - right * self.speed);
+            // Move the target up
+            camera.target += right * self.speed;
         }
+
         if self.is_left_pressed {
-            camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
+            // camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
+            camera.eye = camera.target - (forward + right * self.speed);
+            // Move the target up
+            camera.target -= right * self.speed;
+        }
+
+        // Left shift pressed
+        if self.is_modifier_shift_pressed {
+            if self.is_up_pressed {
+                // Move the character down in the Z space (like jumping up)
+                // Move the eye up (but stay focused on target)
+                camera.eye = camera.target - (forward + camera.up * self.speed);
+                // Move the target up
+                camera.target -= camera.up * self.speed;
+            }
+        }
+
+        // Shift actions that need default state
+        if !self.is_modifier_shift_pressed {
+            if self.is_up_pressed {
+                // "rotate around up"
+                // camera.eye =
+                // camera.target - (forward - camera.up * self.speed).normalize() * forward_mag;
+
+                // Move the character up in the Z space (like jumping up)
+                // Move the eye up (but stay focused on target)
+                camera.eye = camera.target - (forward - camera.up * self.speed);
+                // Move the target up
+                camera.target += camera.up * self.speed;
+            }
         }
     }
 }
