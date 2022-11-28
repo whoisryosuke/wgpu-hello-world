@@ -20,6 +20,7 @@ mod instance;
 mod model;
 mod node;
 mod pass;
+mod primitives;
 mod resources;
 mod texture;
 mod window;
@@ -27,6 +28,7 @@ use crate::{
     camera::{Camera, CameraController, CameraUniform},
     context::create_render_pipeline,
     pass::phong::{Locals, PhongConfig},
+    primitives::PrimitiveMesh,
     window::Window,
 };
 use crate::{
@@ -90,6 +92,14 @@ impl State {
             .await
             .expect("Couldn't load model. Maybe path is wrong?");
 
+        let cube_primitive = PrimitiveMesh::new(
+            &ctx.device,
+            &ctx.queue,
+            &primitives::cube::cube_vertices(0.5),
+            &primitives::cube::cube_indices(),
+        )
+        .await;
+
         // Create instances for each object with locational data (position + rotation)
         // Renderer currently defaults to using instances. Want one object? Pass a Vec of 1 instance.
 
@@ -133,6 +143,24 @@ impl State {
             })
             .collect::<Vec<_>>();
 
+        // More "manual" placement as an example
+        let cube_primitive_instances = (0..2)
+            .map(|z| {
+                let z = SPACE_BETWEEN * (z as f32);
+                let position = cgmath::Vector3 {
+                    x: z + 0.5,
+                    y: 2.0,
+                    z,
+                };
+                let rotation = if position.is_zero() {
+                    cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.0))
+                } else {
+                    cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
+                };
+                Instance { position, rotation }
+            })
+            .collect::<Vec<_>>();
+
         // Create the nodes
         let banana_node = Node {
             parent: 0,
@@ -158,8 +186,20 @@ impl State {
             instances: cube_instances,
         };
 
+        let cube_primitive_node = Node {
+            parent: 0,
+            locals: Locals {
+                position: [0.0, 0.0, 0.0, 0.0],
+                color: [0.0, 0.0, 1.0, 1.0],
+                normal: [0.0, 0.0, 0.0, 0.0],
+                lights: [0.0, 0.0, 0.0, 0.0],
+            },
+            model: cube_primitive.model,
+            instances: cube_primitive_instances,
+        };
+
         // Put all our nodes into an Vector to loop over later
-        let nodes = vec![banana_node, cube_node];
+        let nodes = vec![banana_node, cube_node, cube_primitive_node];
 
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
