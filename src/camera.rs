@@ -122,11 +122,11 @@ impl CameraController {
         position: &PhysicalPosition<f64>,
         screen_size: &winit::dpi::PhysicalSize<u32>,
     ) {
-        println!(
-            "Mouse position X: {} - Y : {}",
-            &position.x / screen_size.width as f64,
-            &position.y / screen_size.height as f64
-        );
+        // println!(
+        //     "Mouse position X: {} - Y : {}",
+        //     &position.x / screen_size.width as f64,
+        //     &position.y / screen_size.height as f64
+        // );
 
         let current_x = &position.x / screen_size.width as f64;
         let current_y = &position.y / screen_size.height as f64;
@@ -160,14 +160,6 @@ impl CameraController {
         state: &ElementState,
         button: &MouseButton,
     ) {
-        // println!("MOUSE INPUT");
-        // println!("Device ID:");
-        // dbg!(device_id);
-        // println!("State:");
-        // dbg!(state);
-        // println!("Button:");
-        // dbg!(button);
-
         match button {
             MouseButton::Right => {
                 self.is_mouse_right_pressed = *state == ElementState::Pressed;
