@@ -57,8 +57,10 @@ pub struct CameraController {
     is_mouse_right_tracked: bool,
 
     // Mouse position
-    mouse_initial_position: PhysicalPosition<f64>,
-    mouse_current_position: PhysicalPosition<f64>,
+    // The initial or previous position, used for calculating direction/speed of movement
+    mouse_initial_position: PhysicalPosition<f32>,
+    // The difference between initial + current position
+    mouse_diff_position: PhysicalPosition<f32>,
 }
 
 impl CameraController {
@@ -74,7 +76,7 @@ impl CameraController {
             is_mouse_right_pressed: false,
             is_mouse_right_tracked: false,
             mouse_initial_position: PhysicalPosition { x: 0.0, y: 0.0 },
-            mouse_current_position: PhysicalPosition { x: 0.0, y: 0.0 },
+            mouse_diff_position: PhysicalPosition { x: 0.0, y: 0.0 },
         }
     }
 
@@ -126,23 +128,30 @@ impl CameraController {
             &position.y / screen_size.height as f64
         );
 
+        let current_x = &position.x / screen_size.width as f64;
+        let current_y = &position.y / screen_size.height as f64;
+
         // Not tracking? Set initial position
         if self.is_mouse_right_pressed && !self.is_mouse_right_tracked {
-            self.mouse_initial_position = position.clone();
+            self.mouse_initial_position = PhysicalPosition {
+                x: current_x as f32,
+                y: current_y as f32,
+            };
             self.is_mouse_right_tracked = true;
         }
 
         // Tracking? Set current position
         if self.is_mouse_right_pressed && self.is_mouse_right_tracked {
-            self.mouse_current_position = position.clone();
+            self.mouse_diff_position = PhysicalPosition {
+                x: current_x as f32 - self.mouse_initial_position.x,
+                y: current_y as f32 - self.mouse_initial_position.y,
+            };
         }
 
-        // Rotate camera based on mouse movement.
-        // We take difference of initial pos and current pos
-        // and use that as base vector in rotation calculations
-        // We use the X for left/right and Y for up/down calcs.
-        // let current_x = &position.x / screen_size.width as f64;
-        // let current_y = &position.y / screen_size.height as f64;
+        // Not pressing anymore? Stop tracking.
+        if !self.is_mouse_right_pressed && self.is_mouse_right_tracked {
+            self.is_mouse_right_tracked = false;
+        }
     }
 
     pub fn process_mouse_input(
@@ -190,6 +199,7 @@ impl CameraController {
         let forward = camera.target - camera.eye;
         let forward_mag = forward.magnitude();
 
+        // Keyboard input
         if self.is_right_pressed {
             // Rescale the distance between the target and eye so
             // that it doesn't change. The eye therefore still
@@ -232,6 +242,17 @@ impl CameraController {
                 // Move the target up
                 camera.target += camera.up * self.speed;
             }
+        }
+
+        // Mouse input
+        if self.is_mouse_right_tracked {
+            // Rotate camera based on mouse movement.
+            // We take difference of initial pos and current pos
+            // and use that as base vector in rotation calculations
+            // We use the X for left/right and Y for up/down calcs.
+
+            camera.eye = camera.target - (forward + right * self.mouse_diff_position.x);
+            // camera.eye = camera.target - (forward - camera.up * self.mouse_diff_position.y);
         }
     }
 }
