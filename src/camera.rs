@@ -251,8 +251,15 @@ impl CameraController {
             // and use that as base vector in rotation calculations
             // We use the X for left/right and Y for up/down calcs.
 
-            camera.eye = camera.target - (forward + right * self.mouse_diff_position.x);
+            // Individually
+            // This won't work together tho, since we override the value
+            // camera.eye = camera.target - (forward + right * self.mouse_diff_position.x);
             // camera.eye = camera.target - (forward - camera.up * self.mouse_diff_position.y);
+
+            // Combined vertical + horizontal movement
+            camera.eye = camera.target
+                - (forward + right * self.mouse_diff_position.x
+                    - camera.up * self.mouse_diff_position.y);
         }
     }
 }
