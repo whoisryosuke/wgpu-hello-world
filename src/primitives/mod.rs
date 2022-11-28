@@ -25,7 +25,7 @@ impl PrimitiveMesh {
         // We can't have empty material (since shader relies o n bind group)
         // And it doesn't accept Option/None, so we give it a placeholder image
         let mut materials = Vec::new();
-        let diffuse_texture = load_texture(&"banana.png", device, queue)
+        let diffuse_texture = load_texture(&"default_texture.png", device, queue)
             .await
             .expect("Couldn't load placeholder texture for primitive");
 
