@@ -88,7 +88,7 @@ impl State {
         // let obj_model = resources::load_model("ferris.obj", &ctx.device, &ctx.queue)
         //     .await
         //     .expect("Couldn't load model. Maybe path is wrong?");
-        let cube_model = resources::load_model("cube.obj", &ctx.device, &ctx.queue)
+        let cube_model = resources::load_model("ferris.obj", &ctx.device, &ctx.queue)
             .await
             .expect("Couldn't load model. Maybe path is wrong?");
 
@@ -143,14 +143,14 @@ impl State {
             })
             .collect::<Vec<_>>();
 
-        // More "manual" placement as an example
+        // The cube primitive instances (aka positions)
         let cube_primitive_instances = (0..2)
             .map(|z| {
                 let z = SPACE_BETWEEN * (z as f32);
                 let position = cgmath::Vector3 {
-                    x: z + 0.5,
+                    x: -z + 2.0,
                     y: 2.0,
-                    z,
+                    z: -z,
                 };
                 let rotation = if position.is_zero() {
                     cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.0))
