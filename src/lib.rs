@@ -76,6 +76,7 @@ impl State {
         let pass_config = PhongConfig {
             max_lights: 1,
             ambient: Default::default(),
+            wireframe: false,
         };
         let pass = PhongPass::new(&pass_config, &ctx.device, &ctx.queue, &ctx.config, &camera);
 

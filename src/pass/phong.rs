@@ -50,6 +50,7 @@ pub struct LightUniform {
 pub struct PhongConfig {
     pub max_lights: usize,
     pub ambient: [u32; 4],
+    pub wireframe: bool,
 }
 
 pub struct PhongPass {
@@ -224,8 +225,17 @@ impl PhongPass {
             stencil: Default::default(),
             bias: Default::default(),
         });
+
+        // Enable/disable wireframe mode
+        let topology = if phong_config.wireframe {
+            wgpu::PrimitiveTopology::LineList
+        } else {
+            wgpu::PrimitiveTopology::TriangleList
+        };
+
         let primitive = wgpu::PrimitiveState {
             cull_mode: Some(wgpu::Face::Back),
+            topology,
             ..Default::default()
         };
         let multisample = wgpu::MultisampleState {
