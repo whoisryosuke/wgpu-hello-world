@@ -28,7 +28,7 @@ use crate::{
     camera::{Camera, CameraController, CameraUniform},
     context::create_render_pipeline,
     pass::phong::{Locals, PhongConfig},
-    primitives::PrimitiveMesh,
+    primitives::{sphere::generate_sphere, PrimitiveMesh},
     window::Window,
 };
 use crate::{
@@ -105,6 +105,11 @@ impl State {
         )
         .await;
 
+        let (sphere_vertices, sphere_indices) = generate_sphere(2.0, 36, 18);
+
+        let sphere_primitive =
+            PrimitiveMesh::new(&ctx.device, &ctx.queue, &sphere_vertices, &sphere_indices).await;
+
         // Create instances for each object with locational data (position + rotation)
         // Renderer currently defaults to using instances. Want one object? Pass a Vec of 1 instance.
 
@@ -168,6 +173,18 @@ impl State {
 
         let plane_primitive_instances = vec![Instance {
             position: cgmath::Vector3 {
+                x: -3.0,
+                y: 3.0,
+                z: -3.0,
+            },
+            rotation: cgmath::Quaternion::from_axis_angle(
+                cgmath::Vector3::unit_z(),
+                cgmath::Deg(0.0),
+            ),
+        }];
+
+        let sphere_primitive_instances = vec![Instance {
+            position: cgmath::Vector3 {
                 x: 3.0,
                 y: 3.0,
                 z: 3.0,
@@ -227,12 +244,25 @@ impl State {
             instances: plane_primitive_instances,
         };
 
+        let sphere_primitive_node = Node {
+            parent: 0,
+            locals: Locals {
+                position: [0.0, 0.0, 0.0, 0.0],
+                color: [0.0, 0.0, 1.0, 1.0],
+                normal: [0.0, 0.0, 0.0, 0.0],
+                lights: [0.0, 0.0, 0.0, 0.0],
+            },
+            model: sphere_primitive.model,
+            instances: sphere_primitive_instances,
+        };
+
         // Put all our nodes into an Vector to loop over later
         let nodes = vec![
             banana_node,
             ferris_node,
             cube_primitive_node,
             plane_primitive_node,
+            sphere_primitive_node,
         ];
 
         // Clear color used for mouse input interaction

@@ -8,6 +8,7 @@ use std::ops::Range;
 use wgpu::util::DeviceExt;
 pub mod cube;
 pub mod plane;
+pub mod sphere;
 pub struct PrimitiveMesh {
     pub model: model::Model,
 }
