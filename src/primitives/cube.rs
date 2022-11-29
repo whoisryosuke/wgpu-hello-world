@@ -5,129 +5,128 @@ pub fn cube_vertices(scale: f32) -> Vec<ModelVertex> {
         // Front face
         ModelVertex {
             position: [-scale, -scale, scale],
-            normal: [0.0, 0.0, scale],
+            normal: [0.0, 0.0, 1.0],
             tex_coords: [0.0, 0.0],
         },
         ModelVertex {
             position: [scale, -scale, scale],
-            normal: [0.0, 0.0, -scale],
+            normal: [0.0, 0.0, -1.0],
             tex_coords: [1.0, 0.0],
         },
         ModelVertex {
             position: [scale, scale, scale],
-            normal: [scale, 0.0, 0.0],
+            normal: [1.0, 0.0, 0.0],
             tex_coords: [1.0, 1.0],
         },
         ModelVertex {
             position: [-scale, scale, scale],
-            normal: [-scale, 0.0, 0.0],
+            normal: [-1.0, 0.0, 0.0],
             tex_coords: [0.0, 1.0],
         },
         // Back face
         ModelVertex {
             position: [-scale, -scale, -scale],
-            normal: [0.0, scale, 0.0],
+            normal: [0.0, 1.0, 0.0],
             tex_coords: [0.0, 0.0],
         },
         ModelVertex {
             position: [-scale, scale, -scale],
-            normal: [0.0, -scale, 0.0],
+            normal: [0.0, -1.0, 0.0],
             tex_coords: [1.0, 0.0],
         },
         ModelVertex {
             position: [scale, scale, -scale],
-            normal: [0.0, 0.0, scale],
+            normal: [0.0, 0.0, 1.0],
             tex_coords: [1.0, 1.0],
         },
         ModelVertex {
             position: [scale, -scale, -scale],
-            normal: [0.0, 0.0, -scale],
+            normal: [0.0, 0.0, -1.0],
             tex_coords: [0.0, 1.0],
         },
         // Top face
         ModelVertex {
             position: [-scale, scale, -scale],
-            normal: [scale, 0.0, 0.0],
+            normal: [1.0, 0.0, 0.0],
             tex_coords: [0.0, 0.0],
         },
         ModelVertex {
             position: [-scale, scale, scale],
-            normal: [-scale, 0.0, 0.0],
+            normal: [-1.0, 0.0, 0.0],
             tex_coords: [1.0, 0.0],
         },
         ModelVertex {
             position: [scale, scale, scale],
-            normal: [0.0, scale, 0.0],
+            normal: [0.0, 1.0, 0.0],
             tex_coords: [1.0, 1.0],
         },
         ModelVertex {
             position: [scale, scale, -scale],
-            normal: [0.0, -scale, 0.0],
+            normal: [0.0, -1.0, 0.0],
             tex_coords: [0.0, 1.0],
         },
         // Bottom face
         ModelVertex {
             position: [-scale, -scale, -scale],
-            normal: [0.0, 0.0, scale],
-
+            normal: [0.0, 0.0, 1.0],
             tex_coords: [0.0, 0.0],
         },
         ModelVertex {
             position: [scale, -scale, -scale],
-            normal: [0.0, 0.0, -scale],
+            normal: [0.0, 0.0, -1.0],
             tex_coords: [1.0, 0.0],
         },
         ModelVertex {
             position: [scale, -scale, scale],
-            normal: [scale, 0.0, 0.0],
+            normal: [1.0, 0.0, 0.0],
 
             tex_coords: [1.0, 1.0],
         },
         ModelVertex {
             position: [-scale, -scale, scale],
-            normal: [-scale, 0.0, 0.0],
+            normal: [-1.0, 0.0, 0.0],
             tex_coords: [0.0, 1.0],
         },
         // Right face
         ModelVertex {
             position: [scale, -scale, -scale],
-            normal: [0.0, scale, 0.0],
+            normal: [0.0, 1.0, 0.0],
             tex_coords: [0.0, 0.0],
         },
         ModelVertex {
             position: [scale, scale, -scale],
-            normal: [0.0, -scale, 0.0],
+            normal: [0.0, -1.0, 0.0],
             tex_coords: [1.0, 0.0],
         },
         ModelVertex {
             position: [scale, scale, scale],
-            normal: [0.0, 0.0, scale],
+            normal: [0.0, 0.0, 1.0],
             tex_coords: [1.0, 1.0],
         },
         ModelVertex {
             position: [scale, -scale, scale],
-            normal: [0.0, 0.0, -scale],
+            normal: [0.0, 0.0, -1.0],
             tex_coords: [0.0, 1.0],
         },
         // Left face
         ModelVertex {
             position: [-scale, -scale, -scale],
-            normal: [scale, 0.0, 0.0],
+            normal: [1.0, 0.0, 0.0],
             tex_coords: [0.0, 0.0],
         },
         ModelVertex {
             position: [-scale, -scale, scale],
-            normal: [-scale, 0.0, 0.0],
+            normal: [-1.0, 0.0, 0.0],
             tex_coords: [1.0, 0.0],
         },
         ModelVertex {
             position: [-scale, scale, scale],
-            normal: [0.0, scale, 0.0],
+            normal: [0.0, 1.0, 0.0],
             tex_coords: [1.0, 1.0],
         },
         ModelVertex {
             position: [-scale, scale, -scale],
-            normal: [0.0, -scale, 0.0],
+            normal: [0.0, -1.0, 0.0],
             tex_coords: [0.0, 1.0],
         },
     ]
