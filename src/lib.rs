@@ -85,10 +85,7 @@ impl State {
         let obj_model = resources::load_model("banana.obj", &ctx.device, &ctx.queue)
             .await
             .expect("Couldn't load model. Maybe path is wrong?");
-        // let obj_model = resources::load_model("ferris.obj", &ctx.device, &ctx.queue)
-        //     .await
-        //     .expect("Couldn't load model. Maybe path is wrong?");
-        let cube_model = resources::load_model("ferris.obj", &ctx.device, &ctx.queue)
+        let ferris_model = resources::load_model("ferris.obj", &ctx.device, &ctx.queue)
             .await
             .expect("Couldn't load model. Maybe path is wrong?");
 
@@ -97,6 +94,14 @@ impl State {
             &ctx.queue,
             &primitives::cube::cube_vertices(0.5),
             &primitives::cube::cube_indices(),
+        )
+        .await;
+
+        let plane_primitive = PrimitiveMesh::new(
+            &ctx.device,
+            &ctx.queue,
+            &primitives::plane::plane_vertices(0.5),
+            &primitives::plane::plane_indices(),
         )
         .await;
 
@@ -130,7 +135,7 @@ impl State {
             .collect::<Vec<_>>();
 
         // More "manual" placement as an example
-        let cube_instances = (0..2)
+        let ferris_instances = (0..2)
             .map(|z| {
                 let z = SPACE_BETWEEN * (z as f32);
                 let position = cgmath::Vector3 { x: z, y: 1.0, z };
@@ -161,6 +166,18 @@ impl State {
             })
             .collect::<Vec<_>>();
 
+        let plane_primitive_instances = vec![Instance {
+            position: cgmath::Vector3 {
+                x: 3.0,
+                y: 3.0,
+                z: 3.0,
+            },
+            rotation: cgmath::Quaternion::from_axis_angle(
+                cgmath::Vector3::unit_z(),
+                cgmath::Deg(0.0),
+            ),
+        }];
+
         // Create the nodes
         let banana_node = Node {
             parent: 0,
@@ -174,7 +191,7 @@ impl State {
             instances: banana_instances,
         };
 
-        let cube_node = Node {
+        let ferris_node = Node {
             parent: 0,
             locals: Locals {
                 position: [0.0, 0.0, 0.0, 0.0],
@@ -182,8 +199,8 @@ impl State {
                 normal: [0.0, 0.0, 0.0, 0.0],
                 lights: [0.0, 0.0, 0.0, 0.0],
             },
-            model: cube_model,
-            instances: cube_instances,
+            model: ferris_model,
+            instances: ferris_instances,
         };
 
         let cube_primitive_node = Node {
@@ -198,8 +215,25 @@ impl State {
             instances: cube_primitive_instances,
         };
 
+        let plane_primitive_node = Node {
+            parent: 0,
+            locals: Locals {
+                position: [0.0, 0.0, 0.0, 0.0],
+                color: [0.0, 0.0, 1.0, 1.0],
+                normal: [0.0, 0.0, 0.0, 0.0],
+                lights: [0.0, 0.0, 0.0, 0.0],
+            },
+            model: plane_primitive.model,
+            instances: plane_primitive_instances,
+        };
+
         // Put all our nodes into an Vector to loop over later
-        let nodes = vec![banana_node, cube_node, cube_primitive_node];
+        let nodes = vec![
+            banana_node,
+            ferris_node,
+            cube_primitive_node,
+            plane_primitive_node,
+        ];
 
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
