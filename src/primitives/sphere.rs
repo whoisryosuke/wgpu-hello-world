@@ -25,22 +25,24 @@ pub fn generate_sphere(
     let (mut sector_angle, mut stack_angle): (f32, f32);
 
     // Build the vertex buffer data (positioin, normal, tex coords)
-    for i in (0..stack_count) {
+    for i in 0..(stack_count + 1) {
         stack_angle = PI / 2.0 - i as f32 * stack_step;
         xy = radius * stack_angle.cos();
         z = radius * stack_angle.sin();
 
-        for j in (0..sector_count) {
+        for j in 0..(sector_count + 1) {
             sector_angle = j as f32 * sector_step;
 
             // Vertices
             x = xy * sector_angle.cos();
             y = xy * sector_angle.sin();
 
+            // Normals
             nx = x * length_inv;
             ny = y * length_inv;
             nz = z * length_inv;
 
+            // Texture coordinates
             s = (j / sector_count) as f32;
             t = (i / stack_count) as f32;
 
@@ -61,13 +63,13 @@ pub fn generate_sphere(
     //  |  / |
     //  | /  |
     //  k2--k2+1
-    for i in (0..(stack_count + 1)) {
+    for i in 0..(stack_count + 1) {
         // Top row
         k1 = i * (sector_count + 1);
         // Bottom row
         k2 = k1 + (sector_count + 1);
 
-        for _j in (0..sector_count) {
+        for _j in 0..(sector_count + 1) {
             if i != 0 {
                 indices.push(k1);
                 indices.push(k2);
