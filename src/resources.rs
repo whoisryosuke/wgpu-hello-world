@@ -170,13 +170,27 @@ pub async fn load_model_gltf(
     let gltf_reader = BufReader::new(gltf_cursor);
     let gltf = Gltf::from_reader(gltf_reader)?;
 
+    // Load buffers
+    let mut buffer_data = Vec::new();
+    for buffer in gltf.buffers() {
+        match buffer.source() {
+            gltf::buffer::Source::Bin => {
+                // if let Some(blob) = gltf.blob.as_deref() {
+                //     buffer_data.push(blob.into());
+                //     println!("Found a bin, saving");
+                // };
+            }
+            gltf::buffer::Source::Uri(uri) => {
+                let bin = load_binary(uri).await?;
+                buffer_data.push(bin);
+            }
+        }
+    }
+
     for scene in gltf.scenes() {
         for node in scene.nodes() {
             println!("Node {}", node.index());
             // dbg!(node);
-            let children = node.children().map(|child| {
-                dbg!(child);
-            });
 
             let mesh = node.mesh().expect("Got mesh");
             let primitives = mesh.primitives();
@@ -186,6 +200,14 @@ pub async fn load_model_gltf(
                 let material = primitive.material().index();
                 // The index buffer data
                 let indices = primitive.indices();
+
+                let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
+
+                if let Some(vertex_attibute) = reader.read_positions().map(|v| {
+                    dbg!(v);
+                }) {
+                    // Save the position here using mapped vertex_attribute result
+                }
 
                 // println!("{:#?}", &indices.expect("got indices").data_type());
                 // println!("{:#?}", &indices.expect("got indices").index());
