@@ -4,7 +4,10 @@ use cfg_if::cfg_if;
 use gltf::Gltf;
 use wgpu::util::DeviceExt;
 
-use crate::{model, texture};
+use crate::{
+    model::{self, ModelVertex},
+    texture,
+};
 
 #[cfg(target_arch = "wasm32")]
 fn format_url(file_name: &str) -> reqwest::Url {
@@ -187,6 +190,10 @@ pub async fn load_model_gltf(
         }
     }
 
+    // let meshes = gltf.scenes().map(|scene| {
+
+    // });
+
     for scene in gltf.scenes() {
         for node in scene.nodes() {
             println!("Node {}", node.index());
@@ -199,21 +206,74 @@ pub async fn load_model_gltf(
                 // Grab the material data (like texture)
                 let material = primitive.material().index();
                 // The index buffer data
-                let indices = primitive.indices();
+                let indices = primitive.indices().expect("got indices");
 
                 let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
 
-                if let Some(vertex_attibute) = reader.read_positions().map(|v| {
-                    dbg!(v);
-                }) {
-                    // Save the position here using mapped vertex_attribute result
+                let mut vertices = Vec::new();
+                if let Some(vertex_attribute) = reader.read_positions() {
+                    vertex_attribute.for_each(|vertex| {
+                        dbg!(vertex);
+                        vertices.push(ModelVertex {
+                            position: vertex,
+                            tex_coords: Default::default(),
+                            normal: Default::default(),
+                        })
+                    });
                 }
+                if let Some(normal_attribute) = reader.read_normals() {
+                    let mut normal_index = 0;
+                    normal_attribute.for_each(|normal| {
+                        dbg!(normal);
+                        vertices[normal_index].normal = normal;
+
+                        normal_index += 1;
+                    });
+                }
+                if let Some(tex_coord_attribute) = reader.read_tex_coords(0).map(|v| v.into_f32()) {
+                    let mut tex_coord_index = 0;
+                    tex_coord_attribute.for_each(|tex_coord| {
+                        dbg!(tex_coord);
+                        vertices[tex_coord_index].tex_coords = tex_coord;
+
+                        tex_coord_index += 1;
+                    });
+                }
+
+                let mut indices = Vec::new();
+                if let Some(indices_raw) = reader.read_indices() {
+                    // dbg!(indices_raw);
+                    indices.append(&mut indices_raw.into_u32().collect::<Vec<u32>>());
+                }
+                dbg!(indices);
 
                 // println!("{:#?}", &indices.expect("got indices").data_type());
                 // println!("{:#?}", &indices.expect("got indices").index());
                 // println!("{:#?}", &material);
+
+                // let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                //     label: Some(&format!("{:?} Vertex Buffer", file_name)),
+                //     contents: bytemuck::cast_slice(&vertices),
+                //     usage: wgpu::BufferUsages::VERTEX,
+                // });
+                // let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                //     label: Some(&format!("{:?} Index Buffer", file_name)),
+                //     contents: bytemuck::cast_slice(&m.mesh.indices),
+                //     usage: wgpu::BufferUsages::INDEX,
+                // });
+
+                // model::Mesh {
+                //     name: file_name.to_string(),
+                //     vertex_buffer,
+                //     index_buffer,
+                //     num_elements: indices.len() as u32,
+                //     // material: m.mesh.material_id.unwrap_or(0),
+                //     material: 0,
+                // };
             });
         }
+
+        Ok(model::Model { meshes, materials })
     }
 
     Ok(true)
