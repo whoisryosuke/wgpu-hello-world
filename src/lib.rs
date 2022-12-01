@@ -90,7 +90,7 @@ impl State {
             .await
             .expect("Couldn't load model. Maybe path is wrong?");
         let gltf_model =
-            resources::load_model_gltf("Plane-Tris-Untextured.gltf", &ctx.device, &ctx.queue)
+            resources::load_model_gltf("Plane-Tris-Textured.gltf", &ctx.device, &ctx.queue)
                 .await
                 .expect("Couldn't load model. Maybe path is wrong?");
 
@@ -245,7 +245,7 @@ impl State {
                 normal: [0.0, 0.0, 0.0, 0.0],
                 lights: [0.0, 0.0, 0.0, 0.0],
             },
-            model: plane_primitive.model,
+            model: gltf_model,
             instances: plane_primitive_instances,
         };
 

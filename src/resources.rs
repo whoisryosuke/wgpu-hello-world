@@ -99,20 +99,6 @@ pub async fn load_model(
     let mut materials = Vec::new();
     for m in obj_materials? {
         let diffuse_texture = load_texture(&m.diffuse_texture, device, queue).await?;
-        // let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        //     layout,
-        //     entries: &[
-        //         wgpu::BindGroupEntry {
-        //             binding: 0,
-        //             resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-        //         },
-        //         wgpu::BindGroupEntry {
-        //             binding: 1,
-        //             resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-        //         },
-        //     ],
-        //     label: None,
-        // });
 
         materials.push(model::Material {
             name: m.name,
@@ -191,6 +177,44 @@ pub async fn load_model_gltf(
     }
 
     let mut materials = Vec::new();
+    for material in gltf.materials() {
+        println!("Looping thru materials");
+        let pbr = material.pbr_metallic_roughness();
+        let base_color_texture = &pbr.base_color_texture();
+        let texture_source = &pbr
+            .base_color_texture()
+            .map(|tex| {
+                println!("Grabbing diffuse tex");
+                dbg!(&tex.texture().source());
+                tex.texture().source().source()
+            })
+            .expect("texture");
+
+        match texture_source {
+            gltf::image::Source::View { view, mime_type } => {
+                let diffuse_texture = texture::Texture::from_bytes(
+                    device,
+                    queue,
+                    &buffer_data[view.buffer().index()],
+                    file_name,
+                )
+                .expect("Couldn't load diffuse");
+
+                materials.push(model::Material {
+                    name: material.name().unwrap_or("Default Material").to_string(),
+                    diffuse_texture,
+                });
+            }
+            gltf::image::Source::Uri { uri, mime_type } => {
+                let diffuse_texture = load_texture(uri, device, queue).await?;
+
+                materials.push(model::Material {
+                    name: material.name().unwrap_or("Default Material").to_string(),
+                    diffuse_texture,
+                });
+            }
+        };
+    }
 
     let mut meshes = Vec::new();
 
