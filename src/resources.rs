@@ -1,6 +1,7 @@
 use std::io::{BufReader, Cursor};
 
 use cfg_if::cfg_if;
+use gltf::Gltf;
 use wgpu::util::DeviceExt;
 
 use crate::{model, texture};
@@ -157,4 +158,41 @@ pub async fn load_model(
         .collect::<Vec<_>>();
 
     Ok(model::Model { meshes, materials })
+}
+
+pub async fn load_model_gltf(
+    file_name: &str,
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+) -> anyhow::Result<bool> {
+    let gltf_text = load_string(file_name).await?;
+    let gltf_cursor = Cursor::new(gltf_text);
+    let gltf_reader = BufReader::new(gltf_cursor);
+    let gltf = Gltf::from_reader(gltf_reader)?;
+
+    for scene in gltf.scenes() {
+        for node in scene.nodes() {
+            println!("Node {}", node.index());
+            // dbg!(node);
+            let children = node.children().map(|child| {
+                dbg!(child);
+            });
+
+            let mesh = node.mesh().expect("Got mesh");
+            let primitives = mesh.primitives();
+            primitives.for_each(|primitive| {
+                // dbg!(primitive);
+                // Grab the material data (like texture)
+                let material = primitive.material().index();
+                // The index buffer data
+                let indices = primitive.indices();
+
+                // println!("{:#?}", &indices.expect("got indices").data_type());
+                // println!("{:#?}", &indices.expect("got indices").index());
+                // println!("{:#?}", &material);
+            });
+        }
+    }
+
+    Ok(true)
 }

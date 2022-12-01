@@ -89,6 +89,10 @@ impl State {
         let ferris_model = resources::load_model("ferris.obj", &ctx.device, &ctx.queue)
             .await
             .expect("Couldn't load model. Maybe path is wrong?");
+        let gltf_model =
+            resources::load_model_gltf("Plane-Tris-Untextured.gltf", &ctx.device, &ctx.queue)
+                .await
+                .expect("Couldn't load model. Maybe path is wrong?");
 
         let cube_primitive = PrimitiveMesh::new(
             &ctx.device,
