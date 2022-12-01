@@ -167,7 +167,7 @@ pub async fn load_model_gltf(
     file_name: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-) -> anyhow::Result<bool> {
+) -> anyhow::Result<model::Model> {
     let gltf_text = load_string(file_name).await?;
     let gltf_cursor = Cursor::new(gltf_text);
     let gltf_reader = BufReader::new(gltf_cursor);
@@ -190,9 +190,9 @@ pub async fn load_model_gltf(
         }
     }
 
-    // let meshes = gltf.scenes().map(|scene| {
+    let mut materials = Vec::new();
 
-    // });
+    let mut meshes = Vec::new();
 
     for scene in gltf.scenes() {
         for node in scene.nodes() {
@@ -245,36 +245,34 @@ pub async fn load_model_gltf(
                     // dbg!(indices_raw);
                     indices.append(&mut indices_raw.into_u32().collect::<Vec<u32>>());
                 }
-                dbg!(indices);
+                // dbg!(indices);
 
                 // println!("{:#?}", &indices.expect("got indices").data_type());
                 // println!("{:#?}", &indices.expect("got indices").index());
                 // println!("{:#?}", &material);
 
-                // let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                //     label: Some(&format!("{:?} Vertex Buffer", file_name)),
-                //     contents: bytemuck::cast_slice(&vertices),
-                //     usage: wgpu::BufferUsages::VERTEX,
-                // });
-                // let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                //     label: Some(&format!("{:?} Index Buffer", file_name)),
-                //     contents: bytemuck::cast_slice(&m.mesh.indices),
-                //     usage: wgpu::BufferUsages::INDEX,
-                // });
+                let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some(&format!("{:?} Vertex Buffer", file_name)),
+                    contents: bytemuck::cast_slice(&vertices),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
+                let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some(&format!("{:?} Index Buffer", file_name)),
+                    contents: bytemuck::cast_slice(&indices),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
 
-                // model::Mesh {
-                //     name: file_name.to_string(),
-                //     vertex_buffer,
-                //     index_buffer,
-                //     num_elements: indices.len() as u32,
-                //     // material: m.mesh.material_id.unwrap_or(0),
-                //     material: 0,
-                // };
+                meshes.push(model::Mesh {
+                    name: file_name.to_string(),
+                    vertex_buffer,
+                    index_buffer,
+                    num_elements: indices.len() as u32,
+                    // material: m.mesh.material_id.unwrap_or(0),
+                    material: 0,
+                });
             });
         }
-
-        Ok(model::Model { meshes, materials })
     }
 
-    Ok(true)
+    Ok(model::Model { meshes, materials })
 }
