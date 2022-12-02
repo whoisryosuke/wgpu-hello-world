@@ -58,7 +58,13 @@ impl PrimitiveMesh {
             material: 0,
         });
 
-        let model = model::Model { meshes, materials };
+        let animations = Vec::new();
+
+        let model = model::Model {
+            meshes,
+            materials,
+            animations,
+        };
 
         Self { model }
     }

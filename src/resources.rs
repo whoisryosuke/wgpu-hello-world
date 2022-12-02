@@ -5,7 +5,7 @@ use gltf::Gltf;
 use wgpu::util::DeviceExt;
 
 use crate::{
-    model::{self, ModelVertex},
+    model::{self, AnimationClip, Keyframes, ModelVertex},
     texture,
 };
 
@@ -146,7 +146,13 @@ pub async fn load_model(
         })
         .collect::<Vec<_>>();
 
-    Ok(model::Model { meshes, materials })
+    let animations = Vec::new();
+
+    Ok(model::Model {
+        meshes,
+        materials,
+        animations,
+    })
 }
 
 pub async fn load_model_gltf(
@@ -177,41 +183,58 @@ pub async fn load_model_gltf(
     }
 
     // Load animations
+    let mut animation_clips = Vec::new();
     for animation in gltf.animations() {
         for channel in animation.channels() {
             let reader = channel.reader(|buffer| Some(&buffer_data[buffer.index()]));
-            let keyframe_timestamps = if let Some(inputs) = reader.read_inputs() {
+            let timestamps = if let Some(inputs) = reader.read_inputs() {
                 match inputs {
                     gltf::accessor::Iter::Standard(times) => {
                         let times: Vec<f32> = times.collect();
                         println!("Time: {}", times.len());
                         // dbg!(times);
+                        times
                     }
                     gltf::accessor::Iter::Sparse(_) => {
                         println!("Sparse keyframes not supported");
+                        let times: Vec<f32> = Vec::new();
+                        times
                     }
                 }
+            } else {
+                println!("We got problems");
+                let times: Vec<f32> = Vec::new();
+                times
             };
 
-            let mut keyframes_vec: Vec<Vec<f32>> = Vec::new();
             let keyframes = if let Some(outputs) = reader.read_outputs() {
                 match outputs {
                     gltf::animation::util::ReadOutputs::Translations(translation) => {
-                        translation.for_each(|tr| {
+                        let translation_vec = translation.map(|tr| {
                             // println!("Translation:");
                             // dbg!(tr);
                             let vector: Vec<f32> = tr.into();
-                            keyframes_vec.push(vector);
-                        });
+                            vector
+                        }).collect();
+                        Keyframes::Translation(translation_vec)
                     },
-                    other => ()
+                    other => {
+                        Keyframes::Other
+                    }
                     // gltf::animation::util::ReadOutputs::Rotations(_) => todo!(),
                     // gltf::animation::util::ReadOutputs::Scales(_) => todo!(),
                     // gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => todo!(),
                 }
+            } else {
+                println!("We got problems");
+                Keyframes::Other
             };
 
-            println!("Keyframes: {}", keyframes_vec.len());
+            animation_clips.push(AnimationClip {
+                name: animation.name().unwrap_or("Default").to_string(),
+                keyframes,
+                timestamps,
+            })
         }
     }
 
@@ -334,5 +357,9 @@ pub async fn load_model_gltf(
         }
     }
 
-    Ok(model::Model { meshes, materials })
+    Ok(model::Model {
+        meshes,
+        materials,
+        animations: animation_clips,
+    })
 }
