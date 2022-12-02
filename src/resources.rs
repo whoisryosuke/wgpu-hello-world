@@ -176,6 +176,46 @@ pub async fn load_model_gltf(
         }
     }
 
+    // Load animations
+    for animation in gltf.animations() {
+        for channel in animation.channels() {
+            let reader = channel.reader(|buffer| Some(&buffer_data[buffer.index()]));
+            let keyframe_timestamps = if let Some(inputs) = reader.read_inputs() {
+                match inputs {
+                    gltf::accessor::Iter::Standard(times) => {
+                        let times: Vec<f32> = times.collect();
+                        println!("Time: {}", times.len());
+                        // dbg!(times);
+                    }
+                    gltf::accessor::Iter::Sparse(_) => {
+                        println!("Sparse keyframes not supported");
+                    }
+                }
+            };
+
+            let mut keyframes_vec: Vec<Vec<f32>> = Vec::new();
+            let keyframes = if let Some(outputs) = reader.read_outputs() {
+                match outputs {
+                    gltf::animation::util::ReadOutputs::Translations(translation) => {
+                        translation.for_each(|tr| {
+                            // println!("Translation:");
+                            // dbg!(tr);
+                            let vector: Vec<f32> = tr.into();
+                            keyframes_vec.push(vector);
+                        });
+                    },
+                    other => ()
+                    // gltf::animation::util::ReadOutputs::Rotations(_) => todo!(),
+                    // gltf::animation::util::ReadOutputs::Scales(_) => todo!(),
+                    // gltf::animation::util::ReadOutputs::MorphTargetWeights(_) => todo!(),
+                }
+            };
+
+            println!("Keyframes: {}", keyframes_vec.len());
+        }
+    }
+
+    // Load materials
     let mut materials = Vec::new();
     for material in gltf.materials() {
         println!("Looping thru materials");
@@ -184,8 +224,8 @@ pub async fn load_model_gltf(
         let texture_source = &pbr
             .base_color_texture()
             .map(|tex| {
-                println!("Grabbing diffuse tex");
-                dbg!(&tex.texture().source());
+                // println!("Grabbing diffuse tex");
+                // dbg!(&tex.texture().source());
                 tex.texture().source().source()
             })
             .expect("texture");
@@ -227,17 +267,13 @@ pub async fn load_model_gltf(
             let primitives = mesh.primitives();
             primitives.for_each(|primitive| {
                 // dbg!(primitive);
-                // Grab the material data (like texture)
-                let material = primitive.material().index();
-                // The index buffer data
-                let indices = primitive.indices().expect("got indices");
 
                 let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
 
                 let mut vertices = Vec::new();
                 if let Some(vertex_attribute) = reader.read_positions() {
                     vertex_attribute.for_each(|vertex| {
-                        dbg!(vertex);
+                        // dbg!(vertex);
                         vertices.push(ModelVertex {
                             position: vertex,
                             tex_coords: Default::default(),
@@ -248,7 +284,7 @@ pub async fn load_model_gltf(
                 if let Some(normal_attribute) = reader.read_normals() {
                     let mut normal_index = 0;
                     normal_attribute.for_each(|normal| {
-                        dbg!(normal);
+                        // dbg!(normal);
                         vertices[normal_index].normal = normal;
 
                         normal_index += 1;
@@ -257,7 +293,7 @@ pub async fn load_model_gltf(
                 if let Some(tex_coord_attribute) = reader.read_tex_coords(0).map(|v| v.into_f32()) {
                     let mut tex_coord_index = 0;
                     tex_coord_attribute.for_each(|tex_coord| {
-                        dbg!(tex_coord);
+                        // dbg!(tex_coord);
                         vertices[tex_coord_index].tex_coords = tex_coord;
 
                         tex_coord_index += 1;
