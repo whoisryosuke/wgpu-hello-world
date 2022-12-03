@@ -1,4 +1,4 @@
-use std::iter;
+use std::{iter, time::Instant};
 
 use cgmath::prelude::*;
 use context::GraphicsContext;
@@ -27,6 +27,7 @@ mod window;
 use crate::{
     camera::{Camera, CameraController, CameraUniform},
     context::create_render_pipeline,
+    model::Keyframes,
     pass::phong::{Locals, PhongConfig},
     primitives::{sphere::generate_sphere, PrimitiveMesh},
     window::Window,
@@ -49,6 +50,8 @@ struct State {
     camera_controller: CameraController,
     // The 3D models in the scene (as Nodes)
     nodes: Vec<Node>,
+    // Animation
+    time: Instant,
 }
 
 impl State {
@@ -273,6 +276,8 @@ impl State {
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
 
+        let time = Instant::now();
+
         Self {
             ctx,
             pass,
@@ -281,6 +286,7 @@ impl State {
             camera,
             camera_controller,
             nodes,
+            time,
         }
     }
 
@@ -357,21 +363,56 @@ impl State {
             bytemuck::cast_slice(&[self.pass.light_uniform]),
         );
 
+        println!("Time elapsed: {:?}", &self.time.elapsed());
+
         // Update local uniforms
+        let current_time = &self.time.elapsed().as_secs_f32();
         let mut node_index = 0;
         for node in &mut self.nodes {
-            node.locals.position = [
-                node.locals.position[0],
-                (node.locals.position[1] + 0.001),
-                (node.locals.position[2] - 0.001),
-                node.locals.position[3],
-            ];
-            node.locals.color = [
-                node.locals.color[0],
-                (node.locals.color[1] + 0.001),
-                (node.locals.color[2] - 0.001),
-                node.locals.color[3],
-            ];
+            // Play animations
+            if node.model.animations.len() > 0 {
+                // Loop through all animations
+                // TODO: Ideally we'd play a certain animation by name - we assume first one for now
+                let mut current_keyframe_index = 0;
+                for animation in &node.model.animations {
+                    for timestamp in &animation.timestamps {
+                        if timestamp > current_time {
+                            break;
+                        }
+                        if &current_keyframe_index < &(&animation.timestamps.len() - 1) {
+                            current_keyframe_index += 1;
+                        }
+                    }
+                }
+
+                // Update locals with current animation
+                let current_animation = &node.model.animations[0].keyframes;
+                let mut current_frame: Option<&Vec<f32>> = None;
+                match current_animation {
+                    Keyframes::Translation(frames) => {
+                        current_frame = Some(&frames[current_keyframe_index])
+                    }
+                    Keyframes::Other => (),
+                }
+
+                if current_frame.is_some() {
+                    let current_frame = current_frame.unwrap();
+
+                    node.locals.position = [
+                        current_frame[0],
+                        current_frame[1],
+                        current_frame[2],
+                        node.locals.position[3],
+                    ];
+                }
+            }
+
+            // node.locals.position = [
+            //     node.locals.position[0],
+            //     (node.locals.position[1] + 0.001),
+            //     (node.locals.position[2] - 0.001),
+            //     node.locals.position[3],
+            // ];
             &self
                 .pass
                 .uniform_pool
