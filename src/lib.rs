@@ -363,7 +363,7 @@ impl State {
             bytemuck::cast_slice(&[self.pass.light_uniform]),
         );
 
-        println!("Time elapsed: {:?}", &self.time.elapsed());
+        // println!("Time elapsed: {:?}", &self.time.elapsed());
 
         // Update local uniforms
         let current_time = &self.time.elapsed().as_secs_f32();

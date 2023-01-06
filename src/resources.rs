@@ -192,7 +192,7 @@ pub async fn load_model_gltf(
                     gltf::accessor::Iter::Standard(times) => {
                         let times: Vec<f32> = times.collect();
                         println!("Time: {}", times.len());
-                        // dbg!(times);
+                        dbg!(&times);
                         times
                     }
                     gltf::accessor::Iter::Sparse(_) => {
@@ -212,7 +212,7 @@ pub async fn load_model_gltf(
                     gltf::animation::util::ReadOutputs::Translations(translation) => {
                         let translation_vec = translation.map(|tr| {
                             // println!("Translation:");
-                            // dbg!(tr);
+                            dbg!(&tr);
                             let vector: Vec<f32> = tr.into();
                             vector
                         }).collect();
