@@ -1,4 +1,4 @@
-use std::iter;
+use std::{iter, time::Instant};
 
 use cgmath::prelude::*;
 use context::GraphicsContext;
@@ -49,6 +49,11 @@ struct State {
     camera_controller: CameraController,
     // The 3D models in the scene (as Nodes)
     nodes: Vec<Node>,
+
+    // Performance
+    frame_count: u32,
+    render_timer: Instant,
+    last_update: u128,
 }
 
 impl State {
@@ -269,6 +274,11 @@ impl State {
         // Clear color used for mouse input interaction
         let clear_color = wgpu::Color::BLACK;
 
+        // Start the FPS Counter
+        let frame_count = 0;
+        let render_timer = Instant::now();
+        let last_update = render_timer.elapsed().as_millis();
+
         Self {
             ctx,
             pass,
@@ -277,6 +287,9 @@ impl State {
             camera,
             camera_controller,
             nodes,
+            frame_count,
+            render_timer,
+            last_update,
         }
     }
 
@@ -390,6 +403,23 @@ impl State {
 
         Ok(())
     }
+
+    fn calculate_frames(&mut self) {
+        let elapsed = self.render_timer.elapsed().as_millis();
+        self.frame_count += 1;
+
+        // Has more than 1 second elapsed? Reset frame counter
+        if elapsed - &self.last_update >= 1 {
+            // Print
+            let fps = 1000.0 / (self.frame_count as f32);
+            println!("FPS: {} ms/frame", fps);
+
+            // Reset frame counter
+            self.frame_count = 0;
+
+            self.last_update = self.render_timer.elapsed().as_millis();
+        }
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
@@ -439,6 +469,7 @@ pub async fn run() {
                 Err(err) => println!("Error in rendering"),
                 Ok(_) => (),
             }
+            app.calculate_frames();
         }
         WindowEvents::Keyboard {
             state,
