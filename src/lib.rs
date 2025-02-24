@@ -634,9 +634,10 @@ impl State {
     // Keeps state in sync with window size when changed
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
-            self.size = new_size;
-            self.config.width = new_size.width;
-            self.config.height = new_size.height;
+            self.size =
+                winit::dpi::PhysicalSize::new(new_size.width.min(8192), new_size.height.min(8192));
+            self.config.width = self.size.width;
+            self.config.height = self.size.height;
             self.surface.configure(&self.device, &self.config);
             // Make sure to current window size to depth texture - required for calc
             self.depth_texture =
